@@ -1,0 +1,6 @@
+[package]
+name = "webthing"
+version = "0.1.0"
+authors = ["Michael Stegeman <michael@stegeman.me>"]
+
+[dependencies]
