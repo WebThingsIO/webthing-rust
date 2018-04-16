@@ -3,6 +3,7 @@
 use serde_json::Value;
 
 use thing::Thing;
+use utils::timestamp;
 
 
 /// An Event represents an individual event from a thing.
@@ -14,6 +15,16 @@ pub struct Event {
 }
 
 impl Event {
+    /// Create a new event
+    pub fn new(thing: Thing, name: String, data: Option<Value>) -> Event {
+        Event {
+            thing: thing,
+            name: name,
+            data: data,
+            time: timestamp(),
+        }
+    }
+
     /// Get the event description.
     ///
     /// Returns a JSON value describing the event.

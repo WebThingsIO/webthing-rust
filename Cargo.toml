@@ -9,4 +9,5 @@ readme = "README.md"
 description = "Implementation of an HTTP Web Thing."
 
 [dependencies]
+chrono = "0.4"
 serde_json = "1.0"
