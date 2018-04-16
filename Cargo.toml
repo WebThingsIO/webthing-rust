@@ -2,5 +2,11 @@
 name = "webthing"
 version = "0.1.0"
 authors = ["Michael Stegeman <michael@stegeman.me>"]
+repository = "https://github.com/mozilla-iot/webthing-rust"
+homepage = "https://github.com/mozilla-iot/webthing-rust"
+license = "MPL-2.0"
+readme = "README.md"
+description = "Implementation of an HTTP Web Thing."
 
 [dependencies]
+serde_json = "1.0"
