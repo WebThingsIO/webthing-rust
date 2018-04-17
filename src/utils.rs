@@ -3,7 +3,6 @@
 use chrono::Utc;
 use std::net::UdpSocket;
 
-
 /// Get the current time.
 ///
 /// Returns the current time in the form YYYY-mm-ddTHH:MM:SS+00:00
@@ -21,7 +20,7 @@ pub fn get_ip() -> String {
         Ok(_) => match socket.local_addr() {
             Ok(addr) => addr.ip().to_string(),
             Err(_) => "127.0.0.1".to_string(),
-        }
+        },
         Err(_) => "127.0.0.1".to_string(),
     }
 }

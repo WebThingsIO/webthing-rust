@@ -3,5 +3,7 @@ extern crate chrono;
 extern crate serde_json;
 
 pub mod event;
+pub mod property;
 pub mod thing;
 pub mod utils;
+pub mod value;
