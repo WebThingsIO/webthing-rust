@@ -5,9 +5,9 @@ use serde_json;
 use thing::Thing;
 use utils::timestamp;
 
-pub trait Event {
+pub trait Event<'a, T: Thing> {
     /// Create a new event
-    fn new(thing: Thing, name: String, data: Option<serde_json::Value>) -> Self;
+    fn new(thing: &'a T, name: String, data: Option<serde_json::Value>) -> Self;
 
     /// Get the event description.
     ///
@@ -22,12 +22,12 @@ pub trait Event {
             inner.insert("data".to_string(), json!(data));
         }
 
-        description.insert("name".to_string(), json!(inner));
+        description.insert(self.get_name(), json!(inner));
         description
     }
 
     /// Get the thing associated with this event.
-    fn get_thing(&self) -> &Thing;
+    fn get_thing(&self) -> &T;
 
     /// Get the event's name.
     fn get_name(&self) -> String;
@@ -40,16 +40,16 @@ pub trait Event {
 }
 
 /// An Event represents an individual event from a thing.
-pub struct BaseEvent {
-    thing: Thing,
+pub struct BaseEvent<'a, T: 'a + Thing> {
+    thing: &'a T,
     name: String,
     data: Option<serde_json::Value>,
     time: String,
 }
 
-impl Event for BaseEvent {
+impl<'a, T: Thing> Event<'a, T> for BaseEvent<'a, T> {
     /// Create a new event
-    fn new(thing: Thing, name: String, data: Option<serde_json::Value>) -> BaseEvent {
+    fn new(thing: &'a T, name: String, data: Option<serde_json::Value>) -> BaseEvent<T> {
         BaseEvent {
             thing: thing,
             name: name,
@@ -59,8 +59,8 @@ impl Event for BaseEvent {
     }
 
     /// Get the thing associated with this event.
-    fn get_thing(&self) -> &Thing {
-        &self.thing
+    fn get_thing(&self) -> &T {
+        self.thing
     }
 
     /// Get the event's name.

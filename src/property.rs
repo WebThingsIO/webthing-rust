@@ -3,8 +3,9 @@
 use serde_json;
 
 use thing::Thing;
+use value::Observer;
 
-pub trait Property {
+pub trait Property<'a, T: Thing> {
     /// Initialize the object.
     ///
     /// thing -- the Thing this property belongs to
@@ -12,7 +13,7 @@ pub trait Property {
     /// value -- Value object to hold the property value
     /// metadata -- property metadata, i.e. type, description, unit, etc., as a Map
     fn new(
-        thing: Thing,
+        thing: &'a T,
         name: String,
         value: serde_json::Value,
         metadata: Option<serde_json::Map<String, serde_json::Value>>,
@@ -47,15 +48,15 @@ pub trait Property {
     fn get_name(&self) -> String;
 
     /// Get the thing associated with this property.
-    fn get_thing(&self) -> &Thing;
+    fn get_thing(&self) -> &T;
 
     /// Get the metadata associated with this property.
     fn get_metadata(&self) -> serde_json::Map<String, serde_json::Value>;
 }
 
 /// A Property represents an individual state value of a thing.
-pub struct BaseProperty {
-    thing: Thing,
+pub struct BaseProperty<'a, T: 'a + Thing> {
+    thing: &'a T,
     name: String,
     value: serde_json::Value,
     href_prefix: String,
@@ -63,7 +64,13 @@ pub struct BaseProperty {
     metadata: serde_json::Map<String, serde_json::Value>,
 }
 
-impl Property for BaseProperty {
+impl<'a, T: Thing> Observer for BaseProperty<'a, T> {
+    fn notify(&self, value: serde_json::Value) {
+        self.thing.property_notify(self);
+    }
+}
+
+impl<'a, T: Thing> Property<'a, T> for BaseProperty<'a, T> {
     /// Initialize the object.
     ///
     /// thing -- the Thing this property belongs to
@@ -71,11 +78,11 @@ impl Property for BaseProperty {
     /// value -- Value object to hold the property value
     /// metadata -- property metadata, i.e. type, description, unit, etc., as a Map
     fn new(
-        thing: Thing,
+        thing: &'a T,
         name: String,
         value: serde_json::Value,
         metadata: Option<serde_json::Map<String, serde_json::Value>>,
-    ) -> BaseProperty {
+    ) -> BaseProperty<T> {
         let meta = match metadata {
             Some(m) => m,
             None => serde_json::Map::new(),
@@ -91,9 +98,6 @@ impl Property for BaseProperty {
             href: href,
             metadata: meta,
         }
-
-        // TODO: Add the property change observer to notify the Thing about a property change.
-        // self.value.on('update', lambda _: self.thing.property_notify(self))
     }
 
     /// Set the prefix of any hrefs associated with this property.
@@ -126,8 +130,8 @@ impl Property for BaseProperty {
     }
 
     /// Get the thing associated with this property.
-    fn get_thing(&self) -> &Thing {
-        &self.thing
+    fn get_thing(&self) -> &T {
+        self.thing
     }
 
     /// Get the metadata associated with this property.
