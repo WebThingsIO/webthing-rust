@@ -1,13 +1,15 @@
 /// High-level Event base class implementation.
 
 use serde_json;
+use std::marker::Sized;
 
-use thing::Thing;
 use utils::timestamp;
 
-pub trait Event<'a, T: Thing> {
+pub trait Event {
     /// Create a new event
-    fn new(thing: &'a T, name: String, data: Option<serde_json::Value>) -> Self;
+    fn new(name: String, data: Option<serde_json::Value>) -> Self
+    where
+        Self: Sized;
 
     /// Get the event description.
     ///
@@ -26,9 +28,6 @@ pub trait Event<'a, T: Thing> {
         description
     }
 
-    /// Get the thing associated with this event.
-    fn get_thing(&self) -> &T;
-
     /// Get the event's name.
     fn get_name(&self) -> String;
 
@@ -40,27 +39,20 @@ pub trait Event<'a, T: Thing> {
 }
 
 /// An Event represents an individual event from a thing.
-pub struct BaseEvent<'a, T: 'a + Thing> {
-    thing: &'a T,
+pub struct BaseEvent {
     name: String,
     data: Option<serde_json::Value>,
     time: String,
 }
 
-impl<'a, T: Thing> Event<'a, T> for BaseEvent<'a, T> {
+impl Event for BaseEvent {
     /// Create a new event
-    fn new(thing: &'a T, name: String, data: Option<serde_json::Value>) -> BaseEvent<T> {
+    fn new(name: String, data: Option<serde_json::Value>) -> BaseEvent {
         BaseEvent {
-            thing: thing,
             name: name,
             data: data,
             time: timestamp(),
         }
-    }
-
-    /// Get the thing associated with this event.
-    fn get_thing(&self) -> &T {
-        self.thing
     }
 
     /// Get the event's name.

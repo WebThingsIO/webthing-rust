@@ -1,18 +1,31 @@
 /// High-level Action base class implementation.
 
 use serde_json;
+use std::marker::Sized;
 
-use thing::Thing;
 use utils::timestamp;
 
-pub trait Action<'a, T: Thing> {
+pub trait ActionNotifier {
+    fn action_notify<'a, A: Action<Self>>(&self, action: &'a A)
+    where
+        Self: Sized;
+}
+
+pub trait Action<A: ActionNotifier> {
     /// Initialize the object.
     ///
     /// id -- ID of this action
     /// thing -- the Thing this action belongs to
     /// name -- name of the action
     /// input -- any action inputs
-    fn new(id: String, thing: &'a T, name: String, input: Option<serde_json::Map<String, serde_json::Value>>) -> Self;
+    fn new(
+        id: String,
+        notifier: A,
+        name: String,
+        input: Option<serde_json::Map<String, serde_json::Value>>,
+    ) -> Self
+    where
+        Self: Sized;
 
     /// Get the action description.
     ///
@@ -55,9 +68,6 @@ pub trait Action<'a, T: Thing> {
     /// Get this action's status.
     fn get_status(&self) -> String;
 
-    /// Get the thing associated with this action.
-    fn get_thing(&self) -> &T;
-
     /// Get the time the action was requested.
     fn get_time_requested(&self) -> String;
 
@@ -80,9 +90,9 @@ pub trait Action<'a, T: Thing> {
     fn finish(&mut self);
 }
 
-pub struct BaseAction<'a, T: 'a + Thing> {
+pub struct BaseAction<A: ActionNotifier> {
     id: String,
-    thing: &'a T,
+    notifier: A,
     name: String,
     input: Option<serde_json::Map<String, serde_json::Value>>,
     href_prefix: String,
@@ -93,19 +103,24 @@ pub struct BaseAction<'a, T: 'a + Thing> {
 }
 
 /// An Action represents an individual action on a thing.
-impl<'a, T: Thing> Action<'a, T> for BaseAction<'a, T> {
+impl<A: ActionNotifier> Action<A> for BaseAction<A> {
     /// Initialize the object.
     ///
     /// id -- ID of this action
     /// thing -- the Thing this action belongs to
     /// name -- name of the action
     /// input -- any action inputs
-    fn new(id: String, thing: &'a T, name: String, input: Option<serde_json::Map<String, serde_json::Value>>) -> BaseAction<T> {
+    fn new(
+        id: String,
+        notifier: A,
+        name: String,
+        input: Option<serde_json::Map<String, serde_json::Value>>,
+    ) -> BaseAction<A> {
         let href = format!("/actions/{}/{}", name, id);
 
         BaseAction {
             id: id,
-            thing: thing,
+            notifier: notifier,
             name: name,
             input: input,
             href_prefix: "".to_owned(),
@@ -129,7 +144,7 @@ impl<'a, T: Thing> Action<'a, T> for BaseAction<'a, T> {
     }
 
     /// Get this action's name.
-    fn get_name(&self) -> String{
+    fn get_name(&self) -> String {
         self.name.clone()
     }
 
@@ -141,11 +156,6 @@ impl<'a, T: Thing> Action<'a, T> for BaseAction<'a, T> {
     /// Get this action's status.
     fn get_status(&self) -> String {
         self.status.clone()
-    }
-
-    /// Get the thing associated with this action.
-    fn get_thing(&self) -> &T {
-        self.thing
     }
 
     /// Get the time the action was requested.
@@ -166,23 +176,21 @@ impl<'a, T: Thing> Action<'a, T> for BaseAction<'a, T> {
     /// Start performing the action.
     fn start(&mut self) {
         self.status = "pending".to_owned();
-        self.thing.action_notify(self);
+        self.notifier.action_notify(self);
         self.perform_action();
         self.finish();
     }
 
     /// Override this with the code necessary to perform the action.
-    fn perform_action(&self) {
-    }
+    fn perform_action(&self) {}
 
     /// Override this with the code necessary to cancel the action.
-    fn cancel(&self) {
-    }
+    fn cancel(&self) {}
 
     /// Finish performing the action.
     fn finish(&mut self) {
         self.status = "completed".to_owned();
         self.time_completed = Some(timestamp());
-        self.thing.action_notify(self);
+        self.notifier.action_notify(self);
     }
 }

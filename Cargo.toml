@@ -9,5 +9,8 @@ readme = "README.md"
 description = "Implementation of an HTTP Web Thing."
 
 [dependencies]
+actix-web = "0.5"
 chrono = "0.4"
+mdns = "0.2"
 serde_json = "1.0"
+valico = "2.1"
