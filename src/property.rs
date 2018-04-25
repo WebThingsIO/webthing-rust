@@ -1,15 +1,19 @@
 /// High-level Property base class implementation.
 
 use serde_json;
-use std::marker::Sized;
+use std::marker::{Send, Sync};
+use std::sync::Arc;
 
-pub trait PropertyNotifier {
-    fn property_notify<'a, P: Property<Self>>(&self, property: &'a P)
-    where
-        Self: Sized;
+pub trait PropertyObserver: Send + Sync {
+    fn property_notify(&self, name: String, value: serde_json::Value);
 }
 
-pub trait Property<P: PropertyNotifier> {
+pub trait Observable {
+    /// Register a new observer.
+    fn register(&mut self, observer: Arc<PropertyObserver>);
+}
+
+pub trait Property: Send + Sync + Observable {
     /// Initialize the object.
     ///
     /// thing -- the Thing this property belongs to
@@ -17,7 +21,6 @@ pub trait Property<P: PropertyNotifier> {
     /// value -- Value object to hold the property value
     /// metadata -- property metadata, i.e. type, description, unit, etc., as a Map
     fn new(
-        notifier: P,
         name: String,
         initial_value: serde_json::Value,
         metadata: Option<serde_json::Map<String, serde_json::Value>>,
@@ -60,31 +63,32 @@ pub trait Property<P: PropertyNotifier> {
 
     /// Get the metadata associated with this property.
     fn get_metadata(&self) -> serde_json::Map<String, serde_json::Value>;
+
+    /// Notify all observers of a change.
+    fn notify_all(&self);
 }
 
 /// A Property represents an individual state value of a thing.
-pub struct BaseProperty<P: PropertyNotifier> {
-    notifier: P,
+pub struct BaseProperty {
     name: String,
     last_value: serde_json::Value,
     href_prefix: String,
     href: String,
     metadata: serde_json::Map<String, serde_json::Value>,
+    observers: Vec<Arc<PropertyObserver>>,
 }
 
-impl<P: PropertyNotifier> Property<P> for BaseProperty<P> {
+impl Property for BaseProperty {
     /// Initialize the object.
     ///
-    /// thing -- the Thing this property belongs to
     /// name -- name of the property
     /// value -- Value object to hold the property value
     /// metadata -- property metadata, i.e. type, description, unit, etc., as a Map
     fn new(
-        notifier: P,
         name: String,
         initial_value: serde_json::Value,
         metadata: Option<serde_json::Map<String, serde_json::Value>>,
-    ) -> BaseProperty<P> {
+    ) -> BaseProperty {
         let meta = match metadata {
             Some(m) => m,
             None => serde_json::Map::new(),
@@ -93,12 +97,12 @@ impl<P: PropertyNotifier> Property<P> for BaseProperty<P> {
         let href = format!("/properties/{}", name);
 
         BaseProperty {
-            notifier: notifier,
             name: name,
             last_value: initial_value,
             href_prefix: "".to_owned(),
             href: href,
             metadata: meta,
+            observers: Vec::new(),
         }
     }
 
@@ -132,7 +136,7 @@ impl<P: PropertyNotifier> Property<P> for BaseProperty<P> {
             self.last_value = value.clone();
         }
 
-        self.notifier.property_notify(self);
+        self.notify_all();
         Ok(())
     }
 
@@ -151,5 +155,19 @@ impl<P: PropertyNotifier> Property<P> for BaseProperty<P> {
     /// Get the metadata associated with this property.
     fn get_metadata(&self) -> serde_json::Map<String, serde_json::Value> {
         self.metadata.clone()
+    }
+
+    /// Notify all observers of a change.
+    fn notify_all(&self) {
+        for obs in &self.observers {
+            obs.property_notify(self.get_name(), self.get_value());
+        }
+    }
+}
+
+impl Observable for BaseProperty {
+    /// Register a new observer.
+    fn register(&mut self, observer: Arc<PropertyObserver>) {
+        self.observers.push(observer);
     }
 }

@@ -2,25 +2,26 @@
 
 use serde_json;
 use std::collections::{HashMap, HashSet};
-use std::marker::Sized;
+use std::marker::{Send, Sync};
+use std::sync::Arc;
 use valico::json_schema;
 
-use action::{Action, ActionNotifier};
-use event::Event;
-use property::{Property, PropertyNotifier};
+use super::action::{Action, ActionObserver};
+use super::event::Event;
+use super::property::{Property, PropertyObserver};
 
-pub trait Thing: Sized + PropertyNotifier {
+pub trait Thing: Send + Sync {
     /// Initialize the object.
     ///
     /// name -- the thing's name
     /// type -- the thing's type
     /// description -- description of the thing
-    fn new(name: String, type_: Option<String>, description: Option<String>) -> Self;
+    fn new(name: String, type_: Option<String>, description: Option<String>) -> Self where Self: Sized;
 
     /// Return the thing state as a Thing Description.
     ///
     /// Returns the state as a dictionary.
-    fn as_thing_description(&mut self) -> serde_json::Map<String, serde_json::Value>;
+    fn as_thing_description(&self) -> serde_json::Map<String, serde_json::Value>;
 
     fn get_href(&self) -> String;
 
@@ -78,26 +79,26 @@ pub trait Thing: Sized + PropertyNotifier {
     /// Add a property to this thing.
     ///
     /// property -- property to add
-    fn add_property(&mut self, property: Box<Property<Self>>);
+    fn add_property(&mut self, property: Box<Property>);
 
     /// Remove a property from this thing.
     ///
     /// property -- property to remove
-    fn remove_property<'b, P: Property<Self>>(&mut self, property: &'b P);
+    fn remove_property(&mut self, property_name: String);
 
     /// Find a property by name.
     ///
     /// property_name -- the property to find
     ///
     /// Returns a Property object, if found, else None.
-    fn find_property(&mut self, property_name: String) -> Option<&mut Box<Property<Self>>>;
+    fn find_property(&mut self, property_name: String) -> Option<&mut Box<Property>>;
 
     /// Get a property's value.
     ///
     /// property_name -- the property to get the value of
     ///
     /// Returns the properties value, if found, else None.
-    fn get_property(&mut self, property_name: String) -> Option<serde_json::Value>;
+    fn get_property(&self, property_name: String) -> Option<serde_json::Value>;
 
     /// Determine whether or not this thing has a given property.
     ///
@@ -110,7 +111,7 @@ pub trait Thing: Sized + PropertyNotifier {
     ///
     /// property_name -- name of the property to set
     /// value -- value to set
-    fn set_property<P: Property<Self>>(
+    fn set_property(
         &mut self,
         property_name: String,
         value: serde_json::Value,
@@ -127,7 +128,7 @@ pub trait Thing: Sized + PropertyNotifier {
     /// action_id -- ID of the action
     ///
     /// Returns the requested action if found, else None.
-    fn get_action(&self, action_name: String, action_id: String) -> Option<&Box<Action<Self>>>;
+    fn get_action(&self, action_name: String, action_id: String) -> Option<&Box<Action>>;
 
     /// Add a new event and notify subscribers.
     ///
@@ -153,8 +154,8 @@ pub trait Thing: Sized + PropertyNotifier {
     fn perform_action(
         &self,
         action_name: String,
-        input: Option<serde_json::Value>,
-    ) -> Option<Box<Action<Self>>>;
+        input: Option<&serde_json::Value>,
+    ) -> Option<Box<Action>>;
 
     /// Remove an existing action.
     ///
@@ -209,10 +210,10 @@ pub struct BaseThing {
     type_: String,
     name: String,
     description: String,
-    properties: HashMap<String, Box<Property<BaseThing>>>,
+    properties: HashMap<String, Box<Property>>,
     available_actions: HashMap<String, AvailableAction>,
     available_events: HashMap<String, AvailableEvent>,
-    actions: HashMap<String, Vec<Box<Action<BaseThing>>>>,
+    actions: HashMap<String, Vec<Box<Action>>>,
     events: Vec<Box<Event>>,
     subscribers: HashSet<()>,
     href_prefix: String,
@@ -256,7 +257,7 @@ impl Thing for BaseThing {
     /// Return the thing state as a Thing Description.
     ///
     /// Returns the state as a dictionary.
-    fn as_thing_description(&mut self) -> serde_json::Map<String, serde_json::Value> {
+    fn as_thing_description(&self) -> serde_json::Map<String, serde_json::Value> {
         let mut description = serde_json::Map::new();
 
         description.insert("name".to_owned(), json!(self.get_name()));
@@ -311,14 +312,14 @@ impl Thing for BaseThing {
         }
 
         let mut actions = serde_json::Map::new();
-        for (name, action) in self.available_actions.iter_mut() {
+        for (name, action) in self.available_actions.iter() {
             actions.insert(name.to_string(), json!(action.get_metadata()));
         }
 
         description.insert("actions".to_owned(), json!(actions));
 
         let mut events = serde_json::Map::new();
-        for (name, event) in self.available_events.iter_mut() {
+        for (name, event) in self.available_events.iter() {
             events.insert(name.to_string(), json!(event.get_metadata()));
         }
 
@@ -455,16 +456,21 @@ impl Thing for BaseThing {
     /// Add a property to this thing.
     ///
     /// property -- property to add
-    fn add_property(&mut self, mut property: Box<Property<BaseThing>>) {
+    fn add_property(&mut self, mut property: Box<Property>) {
         property.set_href_prefix(self.get_href_prefix());
+
+        unsafe {
+            property.register(Arc::from_raw(self));
+        }
+
         self.properties.insert(property.get_name(), property);
     }
 
     /// Remove a property from this thing.
     ///
     /// property -- property to remove
-    fn remove_property<'b, P: Property<BaseThing>>(&mut self, property: &'b P) {
-        self.properties.remove(&property.get_name());
+    fn remove_property(&mut self, property_name: String) {
+        self.properties.remove(&property_name);
     }
 
     /// Find a property by name.
@@ -472,7 +478,7 @@ impl Thing for BaseThing {
     /// property_name -- the property to find
     ///
     /// Returns a Property object, if found, else None.
-    fn find_property(&mut self, property_name: String) -> Option<&mut Box<Property<BaseThing>>> {
+    fn find_property(&mut self, property_name: String) -> Option<&mut Box<Property>> {
         self.properties.get_mut(&property_name)
     }
 
@@ -481,10 +487,11 @@ impl Thing for BaseThing {
     /// property_name -- the property to get the value of
     ///
     /// Returns the properties value, if found, else None.
-    fn get_property(&mut self, property_name: String) -> Option<serde_json::Value> {
-        match self.find_property(property_name) {
-            Some(p) => Some(p.get_value()),
-            None => None,
+    fn get_property(&self, property_name: String) -> Option<serde_json::Value> {
+        if self.has_property(property_name.clone()) {
+            Some(self.properties.get(&property_name).unwrap().get_value())
+        } else {
+            None
         }
     }
 
@@ -507,7 +514,7 @@ impl Thing for BaseThing {
         &self,
         action_name: String,
         action_id: String,
-    ) -> Option<&Box<Action<BaseThing>>> {
+    ) -> Option<&Box<Action>> {
         match self.actions.get(&action_name) {
             Some(entry) => {
                 for action in entry {
@@ -554,8 +561,8 @@ impl Thing for BaseThing {
     fn perform_action(
         &self,
         action_name: String,
-        input: Option<serde_json::Value>,
-    ) -> Option<Box<Action<BaseThing>>> {
+        input: Option<&serde_json::Value>,
+    ) -> Option<Box<Action>> {
         if !self.available_actions.contains_key(&action_name) {
             return None;
         }
@@ -566,7 +573,11 @@ impl Thing for BaseThing {
         }
 
         None
+        // TODO
         //        action = action_type['class'](self, input_=input_)
+        //unsafe {
+        //    property.register(Arc::from_raw(self));
+        //}
         //        action.set_href_prefix(self.href_prefix)
         //        self.action_notify(action)
         //        self.actions[action_name].append(action)
@@ -666,6 +677,7 @@ impl Thing for BaseThing {
             .unwrap()
             .get_subscribers()
         {
+            // TODO
             //            try:
             //                subscriber.write_message(json.dumps({
             //                    'messageType': 'event',
@@ -677,12 +689,13 @@ impl Thing for BaseThing {
     }
 }
 
-impl PropertyNotifier for BaseThing {
+impl PropertyObserver for BaseThing {
     /// Notify all subscribers of a property change.
     ///
     /// property -- the property that changed
-    fn property_notify<'b, P: Property<BaseThing>>(&self, property: &'b P) {
+    fn property_notify(&self, name: String, value: serde_json::Value) {
         for subscriber in &self.subscribers {
+            // TODO
             //            try:
             //                subscriber.write_message(json.dumps({
             //                    'messageType': 'propertyStatus',
@@ -696,12 +709,13 @@ impl PropertyNotifier for BaseThing {
     }
 }
 
-impl ActionNotifier for BaseThing {
+impl ActionObserver for BaseThing {
     /// Notify all subscribers of an action status change.
     ///
     /// action -- the action whose status changed
-    fn action_notify<'b, A: Action<BaseThing>>(&self, action: &'b A) {
+    fn action_notify(&self, action: serde_json::Map<String, serde_json::Value>) {
         for subscriber in &self.subscribers {
+            // TODO
             //            try:
             //                subscriber.write_message(json.dumps({
             //                    'messageType': 'actionStatus',
@@ -715,14 +729,14 @@ impl ActionNotifier for BaseThing {
 
 pub struct AvailableAction {
     metadata: serde_json::Map<String, serde_json::Value>,
-    // class
+    // TODO: class
 }
 
 impl AvailableAction {
     pub fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableAction {
         AvailableAction {
             metadata: metadata,
-            //  class: cls,
+            //  TODO: class: cls,
         }
     }
 
@@ -743,7 +757,7 @@ impl AvailableAction {
         // TODO
     }
 
-    pub fn validate_action_input(&self, input: Option<serde_json::Value>) -> bool {
+    pub fn validate_action_input(&self, input: Option<&serde_json::Value>) -> bool {
         let mut scope = json_schema::Scope::new();
         let validator = if self.metadata.contains_key("input") {
             let schema = self.metadata.get("input").unwrap();

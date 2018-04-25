@@ -1,11 +1,12 @@
 /// High-level Event base class implementation.
 
 use serde_json;
+use std::marker::{Send, Sync};
 use std::marker::Sized;
 
-use utils::timestamp;
+use super::utils::timestamp;
 
-pub trait Event {
+pub trait Event: Send + Sync {
     /// Create a new event
     fn new(name: String, data: Option<serde_json::Value>) -> Self
     where

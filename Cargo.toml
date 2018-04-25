@@ -9,8 +9,12 @@ readme = "README.md"
 description = "Implementation of an HTTP Web Thing."
 
 [dependencies]
-actix-web = "0.5"
+actix = "0.5"
+actix-web = { version = "0.5", features=["alpn"] }
+bytes = "0.4"
 chrono = "0.4"
-mdns = "0.2"
+futures = "0.1"
+mdns = { git = "https://github.com/plietar/rust-mdns" }
+openssl = "0.10"
 serde_json = "1.0"
 valico = "2.1"

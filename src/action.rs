@@ -1,26 +1,27 @@
 /// High-level Action base class implementation.
 
 use serde_json;
-use std::marker::Sized;
+use std::marker::{Send, Sync};
+use std::sync::Arc;
 
-use utils::timestamp;
+use super::utils::timestamp;
 
-pub trait ActionNotifier {
-    fn action_notify<'a, A: Action<Self>>(&self, action: &'a A)
-    where
-        Self: Sized;
+pub trait ActionObserver: Send + Sync {
+    fn action_notify(&self, action: serde_json::Map<String, serde_json::Value>);
 }
 
-pub trait Action<A: ActionNotifier> {
+pub trait Observable {
+    fn register(&mut self, observer: Arc<ActionObserver>);
+}
+
+pub trait Action: Send + Sync + Observable {
     /// Initialize the object.
     ///
     /// id -- ID of this action
-    /// thing -- the Thing this action belongs to
     /// name -- name of the action
     /// input -- any action inputs
     fn new(
         id: String,
-        notifier: A,
         name: String,
         input: Option<serde_json::Map<String, serde_json::Value>>,
     ) -> Self
@@ -88,11 +89,13 @@ pub trait Action<A: ActionNotifier> {
 
     /// Finish performing the action.
     fn finish(&mut self);
+
+    /// Notify all observers of a change.
+    fn notify_all(&self);
 }
 
-pub struct BaseAction<A: ActionNotifier> {
+pub struct BaseAction {
     id: String,
-    notifier: A,
     name: String,
     input: Option<serde_json::Map<String, serde_json::Value>>,
     href_prefix: String,
@@ -100,27 +103,25 @@ pub struct BaseAction<A: ActionNotifier> {
     status: String,
     time_requested: String,
     time_completed: Option<String>,
+    observers: Vec<Arc<ActionObserver>>,
 }
 
 /// An Action represents an individual action on a thing.
-impl<A: ActionNotifier> Action<A> for BaseAction<A> {
+impl Action for BaseAction {
     /// Initialize the object.
     ///
     /// id -- ID of this action
-    /// thing -- the Thing this action belongs to
     /// name -- name of the action
     /// input -- any action inputs
     fn new(
         id: String,
-        notifier: A,
         name: String,
         input: Option<serde_json::Map<String, serde_json::Value>>,
-    ) -> BaseAction<A> {
+    ) -> BaseAction {
         let href = format!("/actions/{}/{}", name, id);
 
         BaseAction {
             id: id,
-            notifier: notifier,
             name: name,
             input: input,
             href_prefix: "".to_owned(),
@@ -128,6 +129,7 @@ impl<A: ActionNotifier> Action<A> for BaseAction<A> {
             status: "created".to_owned(),
             time_requested: timestamp(),
             time_completed: None,
+            observers: Vec::new(),
         }
     }
 
@@ -176,7 +178,7 @@ impl<A: ActionNotifier> Action<A> for BaseAction<A> {
     /// Start performing the action.
     fn start(&mut self) {
         self.status = "pending".to_owned();
-        self.notifier.action_notify(self);
+        self.notify_all();
         self.perform_action();
         self.finish();
     }
@@ -191,6 +193,19 @@ impl<A: ActionNotifier> Action<A> for BaseAction<A> {
     fn finish(&mut self) {
         self.status = "completed".to_owned();
         self.time_completed = Some(timestamp());
-        self.notifier.action_notify(self);
+        self.notify_all();
+    }
+
+    /// Notify all observers of a change.
+    fn notify_all(&self) {
+        for obs in &self.observers {
+            obs.action_notify(self.as_action_description());
+        }
+    }
+}
+
+impl Observable for BaseAction {
+    fn register(&mut self, observer: Arc<ActionObserver>) {
+        self.observers.push(observer);
     }
 }
