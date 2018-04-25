@@ -1,10 +1,10 @@
 /// Rust Web Thing server implementation.
 
 use actix;
-use actix_web::{server, middleware, App, HttpRequest, HttpResponse, Json};
+use actix_web::{middleware, server, App, HttpRequest, HttpResponse, Json};
 use actix_web::server::{HttpHandler, HttpServer};
 use mdns;
-use openssl::ssl::{SslMethod, SslAcceptor, SslFiletype};
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
 use std::sync::Arc;
 
@@ -227,7 +227,10 @@ fn property_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 /// Handle a PUT request to /properties/<property>.
 #[allow(non_snake_case)]
 //fn property_handler_PUT(req: HttpRequest<AppState>) -> HttpResponse {
-fn property_handler_PUT(req: HttpRequest<AppState>, message: Json<serde_json::Value>) -> HttpResponse {
+fn property_handler_PUT(
+    req: HttpRequest<AppState>,
+    message: Json<serde_json::Value>,
+) -> HttpResponse {
     /* TODO
     thing = self.get_thing(thing_id)
     if thing is None:
@@ -274,7 +277,10 @@ fn actions_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 
 /// Handle a POST request to /actions.
 #[allow(non_snake_case)]
-fn actions_handler_POST(req: HttpRequest<AppState>, message: Json<serde_json::Value>) -> HttpResponse {
+fn actions_handler_POST(
+    req: HttpRequest<AppState>,
+    message: Json<serde_json::Value>,
+) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
         return HttpResponse::NotFound().finish();
@@ -288,11 +294,16 @@ fn actions_handler_POST(req: HttpRequest<AppState>, message: Json<serde_json::Va
     let mut response: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
     for (action_name, action_params) in message.iter() {
         let input = action_params.get("input");
-        let action = thing.unwrap().perform_action(action_name.to_string(), input);
+        let action = thing
+            .unwrap()
+            .perform_action(action_name.to_string(), input);
         if action.is_some() {
             let mut action = action.unwrap();
             let description = action.as_action_description();
-            response.insert(action_name.to_string(), description.get(action_name).unwrap().clone());
+            response.insert(
+                action_name.to_string(),
+                description.get(action_name).unwrap().clone(),
+            );
 
             // Start the action
             // TODO: do this in the background
@@ -329,7 +340,10 @@ fn action_id_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
         return HttpResponse::NotFound().finish();
     }
 
-    let action = thing.unwrap().get_action(action_name.unwrap().to_string(), action_id.unwrap().to_string());
+    let action = thing.unwrap().get_action(
+        action_name.unwrap().to_string(),
+        action_id.unwrap().to_string(),
+    );
     if action.is_none() {
         HttpResponse::NotFound().finish()
     } else {
@@ -340,7 +354,10 @@ fn action_id_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 /// Handle a PUT request to /actions/<action_name>/<action_id>.
 #[allow(non_snake_case)]
 //fn action_id_handler_PUT(req: HttpRequest<AppState>) -> HttpResponse {
-fn action_id_handler_PUT(req: HttpRequest<AppState>, message: Json<serde_json::Value>) -> HttpResponse {
+fn action_id_handler_PUT(
+    req: HttpRequest<AppState>,
+    message: Json<serde_json::Value>,
+) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
         HttpResponse::NotFound().finish()
@@ -364,7 +381,10 @@ fn action_id_handler_DELETE(req: HttpRequest<AppState>) -> HttpResponse {
         return HttpResponse::NotFound().finish();
     }
 
-    if thing.unwrap().remove_action(action_name.unwrap().to_string(), action_id.unwrap().to_string()) {
+    if thing.unwrap().remove_action(
+        action_name.unwrap().to_string(),
+        action_id.unwrap().to_string(),
+    ) {
         HttpResponse::NoContent().finish()
     } else {
         HttpResponse::NotFound().finish()
@@ -414,7 +434,12 @@ impl WebThingServer {
     ///         managing multiple things
     /// port -- port to listen on (defaults to 80)
     /// ssl_options -- dict of SSL options to pass to the tornado server
-    pub fn new(mut things: Vec<Box<Thing>>, name: Option<String>, port: Option<u16>, ssl_options: Option<(String, String)>) -> WebThingServer {
+    pub fn new(
+        mut things: Vec<Box<Thing>>,
+        name: Option<String>,
+        port: Option<u16>,
+        ssl_options: Option<(String, String)>,
+    ) -> WebThingServer {
         if things.len() > 1 && name.is_none() {
             panic!("name must be set when managing multiple things");
         }
@@ -450,38 +475,76 @@ impl WebThingServer {
         let cloned = things.clone();
 
         let server = if things.len() > 1 {
-            server::new(move || vec![
-                App::with_state(AppState{things: cloned.clone()})
-                    .middleware(middleware::Logger::default())
-                    .resource("/", |r| r.get().f(things_handler_GET))
-                    .resource("/{thing_id}", |r| r.get().f(thing_handler_GET))
-                    .resource("/{thing_id}/properties", |r| r.get().f(properties_handler_GET))
-                    .resource("/{thing_id}/properties/{property_name}", |r| r.get().f(property_handler_GET))
-                    .resource("/{thing_id}/properties/{property_name}", |r| r.put().with2(property_handler_PUT))
-                    .resource("/{thing_id}/actions", |r| r.get().f(actions_handler_GET))
-                    .resource("/{thing_id}/actions", |r| r.post().with2(actions_handler_POST))
-                    .resource("/{thing_id}/actions/{action_name}", |r| r.get().f(action_handler_GET))
-                    .resource("/{thing_id}/actions/{action_name}/{action_id}", |r| r.get().f(action_id_handler_GET))
-                    .resource("/{thing_id}/actions/{action_name}/{action_id}", |r| r.delete().f(action_id_handler_DELETE))
-                    .resource("/{thing_id}/actions/{action_name}/{action_id}", |r| r.put().with2(action_id_handler_PUT))
-                    .resource("/{thing_id}/events", |r| r.get().f(events_handler_GET))
-                    .resource("/{thing_id}/events/{event_name}", |r| r.get().f(event_handler_GET)).boxed()])
+            server::new(move || {
+                vec![
+                    App::with_state(AppState {
+                        things: cloned.clone(),
+                    }).middleware(middleware::Logger::default())
+                        .resource("/", |r| r.get().f(things_handler_GET))
+                        .resource("/{thing_id}", |r| r.get().f(thing_handler_GET))
+                        .resource("/{thing_id}/properties", |r| {
+                            r.get().f(properties_handler_GET)
+                        })
+                        .resource("/{thing_id}/properties/{property_name}", |r| {
+                            r.get().f(property_handler_GET)
+                        })
+                        .resource("/{thing_id}/properties/{property_name}", |r| {
+                            r.put().with2(property_handler_PUT)
+                        })
+                        .resource("/{thing_id}/actions", |r| r.get().f(actions_handler_GET))
+                        .resource("/{thing_id}/actions", |r| {
+                            r.post().with2(actions_handler_POST)
+                        })
+                        .resource("/{thing_id}/actions/{action_name}", |r| {
+                            r.get().f(action_handler_GET)
+                        })
+                        .resource("/{thing_id}/actions/{action_name}/{action_id}", |r| {
+                            r.get().f(action_id_handler_GET)
+                        })
+                        .resource("/{thing_id}/actions/{action_name}/{action_id}", |r| {
+                            r.delete().f(action_id_handler_DELETE)
+                        })
+                        .resource("/{thing_id}/actions/{action_name}/{action_id}", |r| {
+                            r.put().with2(action_id_handler_PUT)
+                        })
+                        .resource("/{thing_id}/events", |r| r.get().f(events_handler_GET))
+                        .resource("/{thing_id}/events/{event_name}", |r| {
+                            r.get().f(event_handler_GET)
+                        })
+                        .boxed(),
+                ]
+            })
         } else {
-            server::new(move || vec![
-                App::with_state(AppState{things: cloned.clone()})
-                    .middleware(middleware::Logger::default())
-                    .resource("/", |r| r.get().f(thing_handler_GET))
-                    .resource("/properties", |r| r.get().f(properties_handler_GET))
-                    .resource("/properties/{property_name}", |r| r.get().f(property_handler_GET))
-                    .resource("/properties/{property_name}", |r| r.put().with2(property_handler_PUT))
-                    .resource("/actions", |r| r.get().f(actions_handler_GET))
-                    .resource("/actions", |r| r.post().with2(actions_handler_POST))
-                    .resource("/actions/{action_name}", |r| r.get().f(action_handler_GET))
-                    .resource("/actions/{action_name}/{action_id}", |r| r.get().f(action_id_handler_GET))
-                    .resource("/actions/{action_name}/{action_id}", |r| r.delete().f(action_id_handler_DELETE))
-                    .resource("/actions/{action_name}/{action_id}", |r| r.put().with2(action_id_handler_PUT))
-                    .resource("/events", |r| r.get().f(events_handler_GET))
-                    .resource("/events/{event_name}", |r| r.get().f(event_handler_GET)).boxed()])
+            server::new(move || {
+                vec![
+                    App::with_state(AppState {
+                        things: cloned.clone(),
+                    }).middleware(middleware::Logger::default())
+                        .resource("/", |r| r.get().f(thing_handler_GET))
+                        .resource("/properties", |r| r.get().f(properties_handler_GET))
+                        .resource("/properties/{property_name}", |r| {
+                            r.get().f(property_handler_GET)
+                        })
+                        .resource("/properties/{property_name}", |r| {
+                            r.put().with2(property_handler_PUT)
+                        })
+                        .resource("/actions", |r| r.get().f(actions_handler_GET))
+                        .resource("/actions", |r| r.post().with2(actions_handler_POST))
+                        .resource("/actions/{action_name}", |r| r.get().f(action_handler_GET))
+                        .resource("/actions/{action_name}/{action_id}", |r| {
+                            r.get().f(action_id_handler_GET)
+                        })
+                        .resource("/actions/{action_name}/{action_id}", |r| {
+                            r.delete().f(action_id_handler_DELETE)
+                        })
+                        .resource("/actions/{action_name}/{action_id}", |r| {
+                            r.put().with2(action_id_handler_PUT)
+                        })
+                        .resource("/events", |r| r.get().f(events_handler_GET))
+                        .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
+                        .boxed(),
+                ]
+            })
         };
 
         let sys = actix::System::new("webthing");
@@ -492,7 +555,9 @@ impl WebThingServer {
             name: name,
             things: things.clone(),
             ssl_options: ssl_options,
-            server: server.bind(format!("0.0.0.0:{}", port)).expect("Failed to bind socket"),
+            server: server
+                .bind(format!("0.0.0.0:{}", port))
+                .expect("Failed to bind socket"),
             mdns: None,
             system: sys,
         }
@@ -511,16 +576,19 @@ impl WebThingServer {
             "_webthing._sub._http._tcp".to_owned(),
             self.name.clone(),
             self.port,
-            &[&format!("url={}://{}:{}", protocol, self.ip, self.port)]);
+            &[&format!("url={}://{}:{}", protocol, self.ip, self.port)],
+        );
         self.mdns = Some(svc);
 
         match self.ssl_options {
             Some(ref o) => {
                 let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
-                builder.set_private_key_file(o.0.clone(), SslFiletype::PEM).unwrap();
+                builder
+                    .set_private_key_file(o.0.clone(), SslFiletype::PEM)
+                    .unwrap();
                 builder.set_certificate_chain_file(o.1.clone()).unwrap();
                 self.server.start_ssl(builder).unwrap();
-            },
+            }
             None => {
                 self.server.start();
             }

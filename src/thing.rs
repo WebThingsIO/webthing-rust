@@ -16,7 +16,9 @@ pub trait Thing: Send + Sync {
     /// name -- the thing's name
     /// type -- the thing's type
     /// description -- description of the thing
-    fn new(name: String, type_: Option<String>, description: Option<String>) -> Self where Self: Sized;
+    fn new(name: String, type_: Option<String>, description: Option<String>) -> Self
+    where
+        Self: Sized;
 
     /// Return the thing state as a Thing Description.
     ///
@@ -510,11 +512,7 @@ impl Thing for BaseThing {
     /// action_id -- ID of the action
     ///
     /// Returns the requested action if found, else None.
-    fn get_action(
-        &self,
-        action_name: String,
-        action_id: String,
-    ) -> Option<&Box<Action>> {
+    fn get_action(&self, action_name: String, action_id: String) -> Option<&Box<Action>> {
         match self.actions.get(&action_name) {
             Some(entry) => {
                 for action in entry {
