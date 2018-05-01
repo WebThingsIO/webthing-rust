@@ -62,6 +62,7 @@ fn make_light() -> RwLock<Box<Thing + 'static>> {
     thing.add_property(Box::new(BaseProperty::new(
         "on".to_owned(),
         json!(true),
+        false,
         Some(on_description),
     )));
 
@@ -75,6 +76,7 @@ fn make_light() -> RwLock<Box<Thing + 'static>> {
     thing.add_property(Box::new(BaseProperty::new(
         "level".to_owned(),
         json!(50),
+        false,
         Some(level_description),
     )));
 
@@ -123,12 +125,13 @@ fn make_sensor() -> RwLock<Box<Thing + 'static>> {
 
     let on_description = json!({
         "type": "boolean",
-        "description": "Whether the lamp is turned on"
+        "description": "Whether the sensor is on"
     });
     let on_description = on_description.as_object().unwrap().clone();
     thing.add_property(Box::new(BaseProperty::new(
         "on".to_owned(),
         json!(true),
+        true,
         Some(on_description),
     )));
 
@@ -141,6 +144,7 @@ fn make_sensor() -> RwLock<Box<Thing + 'static>> {
     thing.add_property(Box::new(BaseProperty::new(
         "level".to_owned(),
         json!(0),
+        true,
         Some(level_description),
     )));
 

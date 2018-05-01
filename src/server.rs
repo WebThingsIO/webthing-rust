@@ -1,7 +1,7 @@
 /// Rust Web Thing server implementation.
 use actix;
 use actix_web::server::{HttpHandler, HttpServer};
-use actix_web::{middleware, server, App, HttpRequest, HttpResponse, Json};
+use actix_web::{http, middleware, server, App, HttpRequest, HttpResponse, Json};
 use mdns;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
@@ -485,7 +485,10 @@ impl WebThingServer {
                 thing.set_ws_href(format!("{}://{}:{}/{}", ws_protocol, ip, port, idx));
             }
         } else {
-            things[0].write().unwrap().set_ws_href(format!("{}://{}:{}", ws_protocol, ip, port));
+            things[0]
+                .write()
+                .unwrap()
+                .set_ws_href(format!("{}://{}:{}", ws_protocol, ip, port));
         }
 
         let things_arc = Arc::new(things);
@@ -503,26 +506,20 @@ impl WebThingServer {
                             r.get().f(properties_handler_GET)
                         })
                         .resource("/{thing_id}/properties/{property_name}", |r| {
-                            r.get().f(property_handler_GET)
+                            r.get().f(property_handler_GET);
+                            r.put().with2(property_handler_PUT);
                         })
-                        .resource("/{thing_id}/properties/{property_name}", |r| {
-                            r.put().with2(property_handler_PUT)
-                        })
-                        .resource("/{thing_id}/actions", |r| r.get().f(actions_handler_GET))
                         .resource("/{thing_id}/actions", |r| {
-                            r.post().with2(actions_handler_POST)
+                            r.get().f(actions_handler_GET);
+                            r.post().with2(actions_handler_POST);
                         })
                         .resource("/{thing_id}/actions/{action_name}", |r| {
                             r.get().f(action_handler_GET)
                         })
                         .resource("/{thing_id}/actions/{action_name}/{action_id}", |r| {
-                            r.get().f(action_id_handler_GET)
-                        })
-                        .resource("/{thing_id}/actions/{action_name}/{action_id}", |r| {
-                            r.delete().f(action_id_handler_DELETE)
-                        })
-                        .resource("/{thing_id}/actions/{action_name}/{action_id}", |r| {
-                            r.put().with2(action_id_handler_PUT)
+                            r.get().f(action_id_handler_GET);
+                            r.delete().f(action_id_handler_DELETE);
+                            r.put().with2(action_id_handler_PUT);
                         })
                         .resource("/{thing_id}/events", |r| r.get().f(events_handler_GET))
                         .resource("/{thing_id}/events/{event_name}", |r| {
@@ -541,22 +538,18 @@ impl WebThingServer {
                         .resource("/", |r| r.get().f(thing_handler_GET))
                         .resource("/properties", |r| r.get().f(properties_handler_GET))
                         .resource("/properties/{property_name}", |r| {
-                            r.get().f(property_handler_GET)
+                            r.get().f(property_handler_GET);
+                            r.put().with2(property_handler_PUT);
                         })
-                        .resource("/properties/{property_name}", |r| {
-                            r.put().with2(property_handler_PUT)
+                        .resource("/actions", |r| {
+                            r.get().f(actions_handler_GET);
+                            r.post().with2(actions_handler_POST);
                         })
-                        .resource("/actions", |r| r.get().f(actions_handler_GET))
-                        .resource("/actions", |r| r.post().with2(actions_handler_POST))
                         .resource("/actions/{action_name}", |r| r.get().f(action_handler_GET))
                         .resource("/actions/{action_name}/{action_id}", |r| {
-                            r.get().f(action_id_handler_GET)
-                        })
-                        .resource("/actions/{action_name}/{action_id}", |r| {
-                            r.delete().f(action_id_handler_DELETE)
-                        })
-                        .resource("/actions/{action_name}/{action_id}", |r| {
-                            r.put().with2(action_id_handler_PUT)
+                            r.get().f(action_id_handler_GET);
+                            r.delete().f(action_id_handler_DELETE);
+                            r.put().with2(action_id_handler_PUT);
                         })
                         .resource("/events", |r| r.get().f(events_handler_GET))
                         .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))

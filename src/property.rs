@@ -15,13 +15,13 @@ pub trait Observable {
 pub trait Property: Send + Sync + Observable {
     /// Initialize the object.
     ///
-    /// thing -- the Thing this property belongs to
     /// name -- name of the property
     /// value -- Value object to hold the property value
     /// metadata -- property metadata, i.e. type, description, unit, etc., as a Map
     fn new(
         name: String,
         initial_value: serde_json::Value,
+        read_only: bool,
         metadata: Option<serde_json::Map<String, serde_json::Value>>,
     ) -> Self
     where
@@ -71,6 +71,7 @@ pub trait Property: Send + Sync + Observable {
 pub struct BaseProperty {
     name: String,
     last_value: serde_json::Value,
+    read_only: bool,
     href_prefix: String,
     href: String,
     metadata: serde_json::Map<String, serde_json::Value>,
@@ -86,6 +87,7 @@ impl Property for BaseProperty {
     fn new(
         name: String,
         initial_value: serde_json::Value,
+        read_only: bool,
         metadata: Option<serde_json::Map<String, serde_json::Value>>,
     ) -> BaseProperty {
         let meta = match metadata {
@@ -98,6 +100,7 @@ impl Property for BaseProperty {
         BaseProperty {
             name: name,
             last_value: initial_value,
+            read_only: read_only,
             href_prefix: "".to_owned(),
             href: href,
             metadata: meta,
@@ -143,7 +146,11 @@ impl Property for BaseProperty {
     ///
     /// value -- value to forward
     fn forward_value(&self, _value: serde_json::Value) -> Result<(), &'static str> {
-        Err("Read-only value")
+        if self.read_only {
+            Err("Read-only value")
+        } else {
+            Ok(())
+        }
     }
 
     /// Get the name of this property.

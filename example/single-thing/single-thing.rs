@@ -59,6 +59,7 @@ fn make_thing() -> RwLock<Box<Thing + 'static>> {
     thing.add_property(Box::new(BaseProperty::new(
         "on".to_owned(),
         json!(true),
+        false,
         Some(on_description),
     )));
 
@@ -72,6 +73,7 @@ fn make_thing() -> RwLock<Box<Thing + 'static>> {
     thing.add_property(Box::new(BaseProperty::new(
         "level".to_owned(),
         json!(50),
+        false,
         Some(level_description),
     )));
 
