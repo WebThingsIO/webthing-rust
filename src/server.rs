@@ -1,8 +1,7 @@
 /// Rust Web Thing server implementation.
-
 use actix;
-use actix_web::{middleware, server, App, HttpRequest, HttpResponse, Json};
 use actix_web::server::{HttpHandler, HttpServer};
+use actix_web::{middleware, server, App, HttpRequest, HttpResponse, Json};
 use mdns;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;

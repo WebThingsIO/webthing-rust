@@ -1,8 +1,7 @@
 /// High-level Event base class implementation.
-
 use serde_json;
-use std::marker::{Send, Sync};
 use std::marker::Sized;
+use std::marker::{Send, Sync};
 
 use super::utils::timestamp;
 

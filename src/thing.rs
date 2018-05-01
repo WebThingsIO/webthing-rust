@@ -1,5 +1,4 @@
 /// High-level Thing base class implementation.
-
 use serde_json;
 use std::collections::{HashMap, HashSet};
 use std::marker::{Send, Sync};

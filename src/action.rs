@@ -1,5 +1,4 @@
 /// High-level Action base class implementation.
-
 use serde_json;
 use std::marker::{Send, Sync};
 use std::sync::Arc;
