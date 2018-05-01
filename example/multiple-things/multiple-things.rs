@@ -7,7 +7,7 @@ extern crate webthing;
 
 use rand::Rng;
 use std::{thread, time};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Property, Thing,
                WebThingServer};
@@ -47,7 +47,7 @@ class FadeAction(Action):
 */
 
 /// A dimmable light that logs received commands to stdout.
-fn make_light() -> Box<BaseThing> {
+fn make_light() -> RwLock<Box<Thing + 'static>> {
     let mut thing = BaseThing::new(
         "My Lamp".to_owned(),
         Some("dimmableLight".to_owned()),
@@ -110,11 +110,11 @@ fn make_light() -> Box<BaseThing> {
     let overheated_metadata = overheated_metadata.as_object().unwrap().clone();
     thing.add_available_event("overheated".to_owned(), overheated_metadata);
 
-    Box::new(thing)
+    RwLock::new(Box::new(thing))
 }
 
 /// A humidity sensor which updates its measurement every few seconds.
-fn make_sensor() -> Box<BaseThing> {
+fn make_sensor() -> RwLock<Box<Thing + 'static>> {
     let mut thing = BaseThing::new(
         "My Humidity Sensor".to_owned(),
         Some("multiLevelSensor".to_owned()),
@@ -160,13 +160,13 @@ fn make_sensor() -> Box<BaseThing> {
     });
     */
 
-    Box::new(thing)
+    RwLock::new(Box::new(thing))
 }
 
 fn main() {
     env_logger::init();
 
-    let mut things: Vec<Box<Thing + 'static>> = Vec::new();
+    let mut things: Vec<RwLock<Box<Thing + 'static>>> = Vec::new();
 
     // Create a thing that represents a dimmable light
     things.push(make_light());

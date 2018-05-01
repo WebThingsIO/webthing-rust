@@ -5,6 +5,7 @@ extern crate uuid;
 extern crate webthing;
 
 use std::{thread, time};
+use std::sync::RwLock;
 use uuid::Uuid;
 use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Property, Thing,
                WebThingServer};
@@ -12,7 +13,7 @@ use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Pr
 pub struct OverheatedEvent(BaseEvent);
 
 impl Event for OverheatedEvent {
-    fn new(name: String, data: Option<serde_json::Value>) -> OverheatedEvent {
+    fn new(_name: String, data: Option<serde_json::Value>) -> OverheatedEvent {
         OverheatedEvent(BaseEvent::new("overheated".to_owned(), data))
     }
 
@@ -43,10 +44,10 @@ class FadeAction(Action):
         self.thing.add_event(OverheatedEvent(self.thing, 102))
 */
 
-fn make_thing() -> Box<BaseThing> {
+fn make_thing() -> RwLock<Box<Thing + 'static>> {
     let mut thing = BaseThing::new(
         "My Lamp".to_owned(),
-        Some("dimmableLight"),
+        Some("dimmableLight".to_owned()),
         Some("A web connected lamp".to_owned()),
     );
 
@@ -106,13 +107,13 @@ fn make_thing() -> Box<BaseThing> {
     let overheated_metadata = overheated_metadata.as_object().unwrap().clone();
     thing.add_available_event("overheated".to_owned(), overheated_metadata);
 
-    Box::new(thing)
+    RwLock::new(Box::new(thing))
 }
 
 fn main() {
     env_logger::init();
 
-    let mut things: Vec<Box<Thing + 'static>> = Vec::new();
+    let mut things: Vec<RwLock<Box<Thing + 'static>>> = Vec::new();
     things.push(make_thing());
 
     // If adding more than one thing here, be sure to set the `name`
