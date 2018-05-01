@@ -1,7 +1,8 @@
 /// Rust Web Thing server implementation.
 use actix;
+use actix::prelude::*;
 use actix_web::server::{HttpHandler, HttpServer};
-use actix_web::{http, middleware, server, App, HttpRequest, HttpResponse, Json};
+use actix_web::{middleware, pred, server, ws, App, Error, HttpRequest, HttpResponse, Json};
 use mdns;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
@@ -44,6 +45,110 @@ impl AppState {
     }
 }
 
+struct ThingWebSocket;
+
+impl Actor for ThingWebSocket {
+    type Context = ws::WebsocketContext<Self, AppState>;
+}
+
+impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
+    fn handle(&mut self, msg: ws::Message, ctx: &mut Self::Context) {
+        match msg {
+            ws::Message::Ping(msg) => ctx.pong(&msg),
+            ws::Message::Pong(_) => (),
+            ws::Message::Text(text) => {
+                /* TODO
+                try:
+                    message = json.loads(message)
+                except ValueError:
+                    try:
+                        self.write_message(json.dumps({
+                            'messageType': 'error',
+                            'data': {
+                                'status': '400 Bad Request',
+                                'message': 'Parsing request failed',
+                            },
+                        }))
+                    except tornado.websocket.WebSocketClosedError:
+                        pass
+
+                    return
+
+                if 'messageType' not in message or 'data' not in message:
+                    try:
+                        self.write_message(json.dumps({
+                            'messageType': 'error',
+                            'data': {
+                                'status': '400 Bad Request',
+                                'message': 'Invalid message',
+                            },
+                        }))
+                    except tornado.websocket.WebSocketClosedError:
+                        pass
+
+                    return
+
+                msg_type = message['messageType']
+                if msg_type == 'setProperty':
+                    for property_name, property_value in message['data'].items():
+                        try:
+                            self.thing.set_property(property_name, property_value)
+                        except AttributeError:
+                            self.write_message(json.dumps({
+                                'messageType': 'error',
+                                'data': {
+                                    'status': '403 Forbidden',
+                                    'message': 'Read-only property',
+                                },
+                            }))
+                elif msg_type == 'requestAction':
+                    for action_name, action_params in message['data'].items():
+                        input_ = None
+                        if 'input' in action_params:
+                            input_ = action_params['input']
+
+                        action = self.thing.perform_action(action_name, input_)
+                        if action:
+                            tornado.ioloop.IOLoop.current().spawn_callback(
+                                perform_action,
+                                action,
+                            )
+                        else:
+                            self.write_message(json.dumps({
+                                'messageType': 'error',
+                                'data': {
+                                    'status': '400 Bad Request',
+                                    'message': 'Invalid action request',
+                                    'request': message,
+                                },
+                            }))
+                elif msg_type == 'addEventSubscription':
+                    for event_name in message['data'].keys():
+                        self.thing.add_event_subscriber(event_name, self)
+                else:
+                    try:
+                        self.write_message(json.dumps({
+                            'messageType': 'error',
+                            'data': {
+                                'status': '400 Bad Request',
+                                'message': 'Unknown messageType: ' + msg_type,
+                                'request': message,
+                            },
+                        }))
+                    except tornado.websocket.WebSocketClosedError:
+                        pass
+                */
+            }
+            ws::Message::Binary(_) => (),
+            ws::Message::Close(_) => {
+                /* TODO
+                self.thing.remove_subscriber(self)
+                */
+            }
+        }
+    }
+}
+
 /// Handle a GET request to / when the server manages multiple things.
 #[allow(non_snake_case)]
 fn things_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
@@ -64,128 +169,14 @@ fn thing_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
     }
 }
 
-/* TODO
-class ThingHandler(tornado.websocket.WebSocketHandler):
-    """Handle a request to /."""
-
-    @tornado.web.asynchronous
-    def get(self, thing_id='0'):
-        """
-        Handle a GET request, including websocket requests.
-
-        thing_id -- ID of the thing this request is for
-        """
-        self.thing = self.get_thing(thing_id)
-        if self.thing is None:
-            self.set_status(404)
-            return
-
-        if self.request.headers.get('Upgrade', '').lower() == 'websocket':
-            tornado.websocket.WebSocketHandler.get(self)
-            return
-
-        self.set_header('Content-Type', 'application/json')
-        self.write(json.dumps(self.thing.as_thing_description()))
-        self.finish()
-
-    def open(self):
-        """Handle a new connection."""
-        self.thing.add_subscriber(self)
-
-    def on_message(self, message):
-        """
-        Handle an incoming message.
-
-        message -- message to handle
-        """
-        try:
-            message = json.loads(message)
-        except ValueError:
-            try:
-                self.write_message(json.dumps({
-                    'messageType': 'error',
-                    'data': {
-                        'status': '400 Bad Request',
-                        'message': 'Parsing request failed',
-                    },
-                }))
-            except tornado.websocket.WebSocketClosedError:
-                pass
-
-            return
-
-        if 'messageType' not in message or 'data' not in message:
-            try:
-                self.write_message(json.dumps({
-                    'messageType': 'error',
-                    'data': {
-                        'status': '400 Bad Request',
-                        'message': 'Invalid message',
-                    },
-                }))
-            except tornado.websocket.WebSocketClosedError:
-                pass
-
-            return
-
-        msg_type = message['messageType']
-        if msg_type == 'setProperty':
-            for property_name, property_value in message['data'].items():
-                try:
-                    self.thing.set_property(property_name, property_value)
-                except AttributeError:
-                    self.write_message(json.dumps({
-                        'messageType': 'error',
-                        'data': {
-                            'status': '403 Forbidden',
-                            'message': 'Read-only property',
-                        },
-                    }))
-        elif msg_type == 'requestAction':
-            for action_name, action_params in message['data'].items():
-                input_ = None
-                if 'input' in action_params:
-                    input_ = action_params['input']
-
-                action = self.thing.perform_action(action_name, input_)
-                if action:
-                    tornado.ioloop.IOLoop.current().spawn_callback(
-                        perform_action,
-                        action,
-                    )
-                else:
-                    self.write_message(json.dumps({
-                        'messageType': 'error',
-                        'data': {
-                            'status': '400 Bad Request',
-                            'message': 'Invalid action request',
-                            'request': message,
-                        },
-                    }))
-        elif msg_type == 'addEventSubscription':
-            for event_name in message['data'].keys():
-                self.thing.add_event_subscriber(event_name, self)
-        else:
-            try:
-                self.write_message(json.dumps({
-                    'messageType': 'error',
-                    'data': {
-                        'status': '400 Bad Request',
-                        'message': 'Unknown messageType: ' + msg_type,
-                        'request': message,
-                    },
-                }))
-            except tornado.websocket.WebSocketClosedError:
-                pass
-
-    def on_close(self):
-        """Handle a close event on the socket."""
-        self.thing.remove_subscriber(self)
-
-    def check_origin(self, origin):
-        """Allow connections from all origins."""
-        return True
-*/
+/// Handle websocket on /.
+#[allow(non_snake_case)]
+fn thing_handler_WS(req: HttpRequest<AppState>) -> Result<HttpResponse, Error> {
+    /* TODO
+    self.thing.add_subscriber(self)
+    */
+    ws::start(req, ThingWebSocket)
+}
 
 /// Handle a GET request to /properties.
 #[allow(non_snake_case)]
@@ -371,7 +362,7 @@ fn action_id_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 #[allow(non_snake_case)]
 fn action_id_handler_PUT(
     req: HttpRequest<AppState>,
-    message: Json<serde_json::Value>,
+    _message: Json<serde_json::Value>,
 ) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
@@ -435,7 +426,6 @@ pub struct WebThingServer {
     ip: String,
     port: u16,
     name: String,
-    things: Arc<Vec<RwLock<Box<Thing>>>>,
     ssl_options: Option<(String, String)>,
     server: HttpServer<Box<HttpHandler>>,
     mdns: Option<mdns::Service>,
@@ -501,7 +491,13 @@ impl WebThingServer {
                         things: inner_arc.clone(),
                     }).middleware(middleware::Logger::default())
                         .resource("/", |r| r.get().f(things_handler_GET))
-                        .resource("/{thing_id}", |r| r.get().f(thing_handler_GET))
+                        .resource("/{thing_id}", |r| {
+                            r.route()
+                                .filter(pred::Get())
+                                .filter(pred::Header("upgrade", "websocket"))
+                                .f(thing_handler_WS);
+                            r.get().f(thing_handler_GET)
+                        })
                         .resource("/{thing_id}/properties", |r| {
                             r.get().f(properties_handler_GET)
                         })
@@ -535,7 +531,13 @@ impl WebThingServer {
                     App::with_state(AppState {
                         things: inner_arc.clone(),
                     }).middleware(middleware::Logger::default())
-                        .resource("/", |r| r.get().f(thing_handler_GET))
+                        .resource("/", |r| {
+                            r.route()
+                                .filter(pred::Get())
+                                .filter(pred::Header("upgrade", "websocket"))
+                                .f(thing_handler_WS);
+                            r.get().f(thing_handler_GET)
+                        })
                         .resource("/properties", |r| r.get().f(properties_handler_GET))
                         .resource("/properties/{property_name}", |r| {
                             r.get().f(property_handler_GET);
@@ -564,7 +566,6 @@ impl WebThingServer {
             ip: ip,
             port: port,
             name: name,
-            things: things_arc.clone(),
             ssl_options: ssl_options,
             server: server
                 .bind(format!("0.0.0.0:{}", port))

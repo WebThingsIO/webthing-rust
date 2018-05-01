@@ -760,7 +760,7 @@ impl AvailableAction {
             let schema = self.metadata.get("input").unwrap();
             match scope.compile_and_return(json!(schema), true) {
                 Ok(s) => Some(s),
-                Err(e) => None,
+                Err(_) => None,
             }
         } else {
             None
