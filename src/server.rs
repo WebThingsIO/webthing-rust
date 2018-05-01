@@ -218,7 +218,8 @@ fn property_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 
     let property_name = property_name.unwrap();
     if thing.has_property(property_name.to_string()) {
-        HttpResponse::Ok().json(thing.get_property(property_name.to_string()))
+        HttpResponse::Ok()
+            .json(json!({property_name: thing.get_property(property_name.to_string()).unwrap()}))
     } else {
         HttpResponse::NotFound().finish()
     }
@@ -231,37 +232,47 @@ fn property_handler_PUT(
     req: HttpRequest<AppState>,
     message: Json<serde_json::Value>,
 ) -> HttpResponse {
-    /* TODO
-    thing = self.get_thing(thing_id)
-    if thing is None:
-        self.set_status(404)
-        return
+    let thing = req.state().get_thing(req.match_info().get("thing_id"));
+    if thing.is_none() {
+        return HttpResponse::NotFound().finish();
+    }
 
-    try:
-        args = json.loads(self.request.body.decode())
-    except ValueError:
-        self.set_status(400)
-        return
+    let thing = thing.unwrap();
 
-    if property_name not in args:
-        self.set_status(400)
-        return
+    let property_name = req.match_info().get("property_name");
+    if property_name.is_none() {
+        return HttpResponse::NotFound().finish();
+    }
 
-    if thing.has_property(property_name):
-        try:
-            thing.set_property(property_name, args[property_name])
-        except AttributeError:
-            self.set_status(403)
-            return
+    let property_name = property_name.unwrap();
 
-        self.set_header('Content-Type', 'application/json')
-        self.write(json.dumps({
-            property_name: thing.get_property(property_name),
-        }))
-    else:
-        self.set_status(404)
-    */
-    HttpResponse::Ok().finish()
+    if !message.is_object() {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    let args = message.as_object().unwrap();
+
+    if !args.contains_key(property_name) {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    if thing.has_property(property_name.to_string()) {
+        if thing
+            .set_property(
+                property_name.to_string(),
+                args.get(property_name).unwrap().clone(),
+            )
+            .is_ok()
+        {
+            HttpResponse::Ok().json(
+                json!({property_name: thing.get_property(property_name.to_string()).unwrap()}),
+            )
+        } else {
+            HttpResponse::Forbidden().finish()
+        }
+    } else {
+        HttpResponse::NotFound().finish()
+    }
 }
 
 /// Handle a GET request to /actions.

@@ -6,8 +6,8 @@ extern crate webthing;
 
 use std::{thread, time};
 use uuid::Uuid;
-use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Property, Thing, WebThingServer};
-
+use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Property, Thing,
+               WebThingServer};
 
 pub struct OverheatedEvent(BaseEvent);
 
@@ -44,14 +44,22 @@ class FadeAction(Action):
 */
 
 fn make_thing() -> Box<BaseThing> {
-    let mut thing = BaseThing::new("My Lamp".to_owned(), None, Some("A web connected lamp".to_owned()));
+    let mut thing = BaseThing::new(
+        "My Lamp".to_owned(),
+        Some("dimmableLight"),
+        Some("A web connected lamp".to_owned()),
+    );
 
     let on_description = json!({
         "type": "boolean",
         "description": "Whether the lamp is turned on"
     });
     let on_description = on_description.as_object().unwrap().clone();
-    thing.add_property(Box::new(BaseProperty::new("on".to_owned(), json!(true), Some(on_description))));
+    thing.add_property(Box::new(BaseProperty::new(
+        "on".to_owned(),
+        json!(true),
+        Some(on_description),
+    )));
 
     let level_description = json!({
         "type": "number",
@@ -60,7 +68,11 @@ fn make_thing() -> Box<BaseThing> {
         "maximum": 100
     });
     let level_description = level_description.as_object().unwrap().clone();
-    thing.add_property(Box::new(BaseProperty::new("level".to_owned(), json!(50), Some(level_description))));
+    thing.add_property(Box::new(BaseProperty::new(
+        "level".to_owned(),
+        json!(50),
+        Some(level_description),
+    )));
 
     let fade_metadata = json!({
         "description": "Fade the lamp to a given level",
