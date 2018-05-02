@@ -204,7 +204,7 @@ pub trait Thing: Send + Sync {
     /// Notify all subscribers of an event.
     ///
     /// event -- the event that occurred
-    fn event_notify(&self, event: &Box<Event>);
+    fn event_notify(&self, name: String, event: serde_json::Map<String, serde_json::Value>);
 }
 
 /// A Web Thing.
@@ -531,7 +531,7 @@ impl Thing for BaseThing {
     ///
     /// event -- the event that occurred
     fn add_event(&mut self, event: Box<Event>) {
-        self.event_notify(&event);
+        self.event_notify(event.get_name(), event.as_event_description());
         self.events.push(event);
     }
 
@@ -670,24 +670,30 @@ impl Thing for BaseThing {
     /// Notify all subscribers of an event.
     ///
     /// event -- the event that occurred
-    fn event_notify(&self, event: &Box<Event>) {
-        if !self.available_events.contains_key(&event.get_name()) {
+    fn event_notify(&self, name: String, event: serde_json::Map<String, serde_json::Value>) {
+        if !self.available_events.contains_key(&name) {
             return;
         }
 
+        let message = json!({
+            "messageType": "event",
+            "data": event,
+        });
+
         for subscriber in self.available_events
-            .get(&event.get_name())
+            .get(&name)
             .unwrap()
             .get_subscribers()
+            .values()
         {
-            // TODO
-            //            try:
-            //                subscriber.write_message(json.dumps({
-            //                    'messageType': 'event',
-            //                    'data': event.as_event_description(),
-            //                }))
-            //            except tornado.websocket.WebSocketClosedError:
-            //                pass
+            match subscriber.upgrade() {
+                Some(subscriber) => {
+                    /* TODO
+                    subscriber.Context.text(message.to_string());
+                    */
+                }
+                None => (),
+            }
         }
     }
 }
@@ -697,17 +703,22 @@ impl PropertyObserver for BaseThing {
     ///
     /// property -- the property that changed
     fn property_notify(&self, name: String, value: serde_json::Value) {
-        for subscriber in &self.subscribers {
-            // TODO
-            //            try:
-            //                subscriber.write_message(json.dumps({
-            //                    'messageType': 'propertyStatus',
-            //                    'data': {
-            //                        property_.name: property_.get_value(),
-            //                    }
-            //                }))
-            //            except tornado.websocket.WebSocketClosedError:
-            //                pass
+        let message = json!({
+            "messageType": "propertyStatus",
+            "data": {
+                name: value
+            }
+        });
+
+        for subscriber in self.subscribers.values() {
+            match subscriber.upgrade() {
+                Some(subscriber) => {
+                    /* TODO
+                    subscriber.Context.text(message.to_string());
+                    */
+                }
+                None => (),
+            }
         }
     }
 }
@@ -717,15 +728,20 @@ impl ActionObserver for BaseThing {
     ///
     /// action -- the action whose status changed
     fn action_notify(&self, action: serde_json::Map<String, serde_json::Value>) {
-        for subscriber in &self.subscribers {
-            // TODO
-            //            try:
-            //                subscriber.write_message(json.dumps({
-            //                    'messageType': 'actionStatus',
-            //                    'data': action.as_action_description(),
-            //                }))
-            //            except tornado.websocket.WebSocketClosedError:
-            //                pass
+        let message = json!({
+            "messageType": "actionStatus",
+            "data": action
+        });
+
+        for subscriber in self.subscribers.values() {
+            match subscriber.upgrade() {
+                Some(subscriber) => {
+                    /* TODO
+                    subscriber.Context.text(message.to_string());
+                    */
+                }
+                None => (),
+            }
         }
     }
 }
