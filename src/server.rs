@@ -7,11 +7,12 @@ use mdns;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
 use std::sync::{Arc, RwLock};
+use uuid::Uuid;
 
 use super::thing::Thing;
 use super::utils::get_ip;
 
-struct AppState {
+pub struct AppState {
     things: Arc<Vec<RwLock<Box<Thing>>>>,
 }
 
@@ -43,9 +44,27 @@ impl AppState {
             Some(&self.things[0])
         }
     }
+
+    fn get_things(&self) -> Arc<Vec<RwLock<Box<Thing>>>> {
+        self.things.clone()
+    }
 }
 
-struct ThingWebSocket;
+pub struct ThingWebSocket {
+    id: String,
+    thing_id: usize,
+    things: Arc<Vec<RwLock<Box<Thing>>>>,
+}
+
+impl ThingWebSocket {
+    pub fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn get_thing(&self) -> &RwLock<Box<Thing>> {
+        &self.things[self.thing_id]
+    }
+}
 
 impl Actor for ThingWebSocket {
     type Context = ws::WebsocketContext<Self, AppState>;
@@ -141,9 +160,10 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
             }
             ws::Message::Binary(_) => (),
             ws::Message::Close(_) => {
-                /* TODO
-                self.thing.remove_subscriber(self)
-                */
+                self.get_thing()
+                    .write()
+                    .unwrap()
+                    .remove_subscriber(self.get_id());
             }
         }
     }
@@ -172,10 +192,24 @@ fn thing_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 /// Handle websocket on /.
 #[allow(non_snake_case)]
 fn thing_handler_WS(req: HttpRequest<AppState>) -> Result<HttpResponse, Error> {
-    /* TODO
-    self.thing.add_subscriber(self)
-    */
-    ws::start(req, ThingWebSocket)
+    let thing_id = req.match_info().get("thing_id");
+
+    match req.state().get_thing(thing_id) {
+        None => Ok(HttpResponse::NotFound().finish()),
+        Some(thing) => {
+            let thing_id = match thing_id {
+                None => 0,
+                Some(id) => id.parse::<usize>().unwrap(),
+            };
+            let ws = Arc::new(ThingWebSocket {
+                id: Uuid::new_v4().to_string(),
+                thing_id: thing_id,
+                things: req.state().get_things(),
+            });
+            thing.write().unwrap().add_subscriber(Arc::downgrade(&ws));
+            ws::start(req.clone(), Arc::try_unwrap(ws.clone()).ok().unwrap())
+        }
+    }
 }
 
 /// Handle a GET request to /properties.

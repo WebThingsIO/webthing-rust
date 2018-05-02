@@ -7,6 +7,7 @@ extern crate mdns;
 extern crate openssl;
 #[macro_use]
 extern crate serde_json;
+extern crate uuid;
 extern crate valico;
 
 pub mod action;

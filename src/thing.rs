@@ -1,13 +1,14 @@
 /// High-level Thing base class implementation.
 use serde_json;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::marker::{Send, Sync};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use valico::json_schema;
 
 use super::action::{Action, ActionObserver};
 use super::event::Event;
 use super::property::{Property, PropertyObserver};
+use super::server::ThingWebSocket;
 
 pub trait Thing: Send + Sync {
     /// Initialize the object.
@@ -181,24 +182,24 @@ pub trait Thing: Send + Sync {
     /// Add a new websocket subscriber.
     ///
     /// ws -- the websocket
-    fn add_subscriber(&mut self, ws: ());
+    fn add_subscriber(&mut self, ws: Weak<ThingWebSocket>);
 
     /// Remove a websocket subscriber.
     ///
     /// ws -- the websocket
-    fn remove_subscriber(&mut self, ws: &());
+    fn remove_subscriber(&mut self, ws_id: String);
 
     /// Add a new websocket subscriber to an event.
     ///
     /// name -- name of the event
     /// ws -- the websocket
-    fn add_event_subscriber(&mut self, name: String, ws: ());
+    fn add_event_subscriber(&mut self, name: String, ws: Weak<ThingWebSocket>);
 
     /// Remove a websocket subscriber from an event.
     ///
     /// name -- name of the event
     /// ws -- the websocket
-    fn remove_event_subscriber(&mut self, name: String, ws: &());
+    fn remove_event_subscriber(&mut self, name: String, ws_id: String);
 
     /// Notify all subscribers of an event.
     ///
@@ -216,7 +217,7 @@ pub struct BaseThing {
     available_events: HashMap<String, AvailableEvent>,
     actions: HashMap<String, Vec<Box<Action>>>,
     events: Vec<Box<Event>>,
-    subscribers: HashSet<()>,
+    subscribers: HashMap<String, Weak<ThingWebSocket>>,
     href_prefix: String,
     ws_href: Option<String>,
     ui_href: Option<String>,
@@ -248,7 +249,7 @@ impl Thing for BaseThing {
             available_events: HashMap::new(),
             actions: HashMap::new(),
             events: Vec::new(),
-            subscribers: HashSet::new(),
+            subscribers: HashMap::new(),
             href_prefix: "".to_owned(),
             ws_href: None,
             ui_href: None,
@@ -620,18 +621,23 @@ impl Thing for BaseThing {
     /// Add a new websocket subscriber.
     ///
     /// ws -- the websocket
-    fn add_subscriber(&mut self, ws: ()) {
-        self.subscribers.insert(ws);
+    fn add_subscriber(&mut self, ws: Weak<ThingWebSocket>) {
+        match ws.upgrade() {
+            Some(ws) => {
+                self.subscribers.insert(ws.get_id(), Arc::downgrade(&ws));
+            }
+            None => (),
+        }
     }
 
     /// Remove a websocket subscriber.
     ///
     /// ws -- the websocket
-    fn remove_subscriber(&mut self, ws: &()) {
-        self.subscribers.remove(&ws);
+    fn remove_subscriber(&mut self, ws_id: String) {
+        self.subscribers.remove(&ws_id);
 
         for event in self.available_events.values_mut() {
-            event.remove_subscriber(ws);
+            event.remove_subscriber(ws_id.clone());
         }
     }
 
@@ -639,7 +645,7 @@ impl Thing for BaseThing {
     ///
     /// name -- name of the event
     /// ws -- the websocket
-    fn add_event_subscriber(&mut self, name: String, ws: ()) {
+    fn add_event_subscriber(&mut self, name: String, ws: Weak<ThingWebSocket>) {
         if self.available_events.contains_key(&name) {
             self.available_events
                 .get_mut(&name)
@@ -652,12 +658,12 @@ impl Thing for BaseThing {
     ///
     /// name -- name of the event
     /// ws -- the websocket
-    fn remove_event_subscriber(&mut self, name: String, ws: &()) {
+    fn remove_event_subscriber(&mut self, name: String, ws_id: String) {
         if self.available_events.contains_key(&name) {
             self.available_events
                 .get_mut(&name)
                 .unwrap()
-                .remove_subscriber(ws);
+                .remove_subscriber(ws_id);
         }
     }
 
@@ -778,14 +784,14 @@ impl AvailableAction {
 
 pub struct AvailableEvent {
     metadata: serde_json::Map<String, serde_json::Value>,
-    subscribers: HashSet<()>,
+    subscribers: HashMap<String, Weak<ThingWebSocket>>,
 }
 
 impl AvailableEvent {
     pub fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableEvent {
         AvailableEvent {
             metadata: metadata,
-            subscribers: HashSet::new(),
+            subscribers: HashMap::new(),
         }
     }
 
@@ -802,15 +808,20 @@ impl AvailableEvent {
         &self.metadata
     }
 
-    pub fn add_subscriber(&mut self, ws: ()) {
-        self.subscribers.insert(ws);
+    pub fn add_subscriber(&mut self, ws: Weak<ThingWebSocket>) {
+        match ws.upgrade() {
+            Some(ws) => {
+                self.subscribers.insert(ws.get_id(), Arc::downgrade(&ws));
+            }
+            None => (),
+        }
     }
 
-    pub fn remove_subscriber(&mut self, ws: &()) {
-        self.subscribers.remove(ws);
+    pub fn remove_subscriber(&mut self, ws_id: String) {
+        self.subscribers.remove(&ws_id);
     }
 
-    pub fn get_subscribers(&self) -> &HashSet<()> {
+    pub fn get_subscribers(&self) -> &HashMap<String, Weak<ThingWebSocket>> {
         &self.subscribers
     }
 }
