@@ -76,87 +76,144 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
             ws::Message::Ping(msg) => ctx.pong(&msg),
             ws::Message::Pong(_) => (),
             ws::Message::Text(text) => {
-                /* TODO
-                try:
-                    message = json.loads(message)
-                except ValueError:
-                    try:
-                        self.write_message(json.dumps({
-                            'messageType': 'error',
-                            'data': {
-                                'status': '400 Bad Request',
-                                'message': 'Parsing request failed',
-                            },
-                        }))
-                    except tornado.websocket.WebSocketClosedError:
-                        pass
+                let message = serde_json::from_str(&text);
+                if message.is_err() {
+                    return ctx.text(
+                        r#"
+                        {
+                            "messageType": "error",
+                            "data": {
+                                "status": "400 Bad Request",
+                                "message": "Parsing request failed"
+                            }
+                        }"#,
+                    );
+                }
 
-                    return
+                let message: serde_json::Value = message.unwrap();
+                if !message.is_object() {
+                    return ctx.text(
+                        r#"
+                        {
+                            "messageType": "error",
+                            "data": {
+                                "status": "400 Bad Request",
+                                "message": "Parsing request failed"
+                            }
+                        }"#,
+                    );
+                }
 
-                if 'messageType' not in message or 'data' not in message:
-                    try:
-                        self.write_message(json.dumps({
-                            'messageType': 'error',
-                            'data': {
-                                'status': '400 Bad Request',
-                                'message': 'Invalid message',
-                            },
-                        }))
-                    except tornado.websocket.WebSocketClosedError:
-                        pass
+                let message = message.as_object().unwrap();
 
-                    return
+                if !message.contains_key("messageType") || !message.contains_key("data") {
+                    return ctx.text(
+                        r#"
+                        {
+                            "messageType": "error",
+                            "data": {
+                                "status": "400 Bad Request",
+                                "message": "Invalid message"
+                            }
+                        }"#,
+                    );
+                }
 
-                msg_type = message['messageType']
-                if msg_type == 'setProperty':
-                    for property_name, property_value in message['data'].items():
-                        try:
-                            self.thing.set_property(property_name, property_value)
-                        except AttributeError:
-                            self.write_message(json.dumps({
-                                'messageType': 'error',
-                                'data': {
-                                    'status': '403 Forbidden',
-                                    'message': 'Read-only property',
-                                },
-                            }))
-                elif msg_type == 'requestAction':
-                    for action_name, action_params in message['data'].items():
-                        input_ = None
-                        if 'input' in action_params:
-                            input_ = action_params['input']
+                let msg_type = message.get("messageType").unwrap().as_str();
+                let data = message.get("data").unwrap().as_object();
+                if msg_type.is_none() || data.is_none() {
+                    return ctx.text(
+                        r#"
+                        {
+                            "messageType": "error",
+                            "data": {
+                                "status": "400 Bad Request",
+                                "message": "Invalid message"
+                            }
+                        }"#,
+                    );
+                }
 
-                        action = self.thing.perform_action(action_name, input_)
-                        if action:
-                            tornado.ioloop.IOLoop.current().spawn_callback(
-                                perform_action,
-                                action,
-                            )
-                        else:
-                            self.write_message(json.dumps({
-                                'messageType': 'error',
-                                'data': {
-                                    'status': '400 Bad Request',
-                                    'message': 'Invalid action request',
-                                    'request': message,
-                                },
-                            }))
-                elif msg_type == 'addEventSubscription':
-                    for event_name in message['data'].keys():
-                        self.thing.add_event_subscriber(event_name, self)
-                else:
-                    try:
-                        self.write_message(json.dumps({
-                            'messageType': 'error',
-                            'data': {
-                                'status': '400 Bad Request',
-                                'message': 'Unknown messageType: ' + msg_type,
-                                'request': message,
-                            },
-                        }))
-                    except tornado.websocket.WebSocketClosedError:
-                        pass
-                */
+                let msg_type = msg_type.unwrap();
+                let data = data.unwrap();
+
+                match msg_type {
+                    "setProperty" => for (property_name, property_value) in data.iter() {
+                        if self.get_thing()
+                            .write()
+                            .unwrap()
+                            .set_property(property_name.to_string(), property_value.clone())
+                            .is_err()
+                        {
+                            return ctx.text(
+                                r#"
+                                    {
+                                        "messageType": "error",
+                                        "data": {
+                                            "status": "403 Forbidden",
+                                            "message": "Read-only property"
+                                        }
+                                    }"#,
+                            );
+                        }
+                    },
+                    "requestAction" => {
+                        for (action_name, action_params) in data.iter() {
+                            let action = self.get_thing()
+                                .write()
+                                .unwrap()
+                                .perform_action(action_name.to_string(), Some(action_params));
+
+                            match action {
+                                Some(mut action) => {
+                                    // Start the action
+                                    // TODO: do this in the background
+                                    action.start();
+                                }
+                                None => {
+                                    return ctx.text(format!(
+                                        r#"
+                                        {{
+                                            "messageType": "error",
+                                            "data": {{
+                                                "status": "400 Bad Request",
+                                                "message": "Invalid action request",
+                                                "request": {}
+                                            }}
+                                        }}"#,
+                                        text
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                    "addEventSubscription" => {
+                        for event_name in data.keys() {
+                            /* TODO
+                            self.get_thing()
+                                .write()
+                                .unwrap()
+                                .add_event_subscriber(
+                                    event_name.to_string(),
+                                    Arc::downgrade(&Arc::new(self)),
+                                );
+                            */
+                        }
+                    }
+                    unknown => {
+                        return ctx.text(format!(
+                            r#"
+                            {{
+                                "messageType": "error",
+                                "data": {{
+                                    "status": "400 Bad Request",
+                                    "message": "Unknown messageType: {}"
+                                }}
+                            }}"#,
+                            unknown
+                        ));
+                    }
+                }
             }
             ws::Message::Binary(_) => (),
             ws::Message::Close(_) => {
