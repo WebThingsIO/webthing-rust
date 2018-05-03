@@ -5,10 +5,12 @@ extern crate uuid;
 extern crate webthing;
 
 use std::{thread, time};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Property, Thing,
                WebThingServer};
+use webthing::action::{ActionObserver, Observable};
+use webthing::server::ActionGenerator;
 
 pub struct OverheatedEvent(BaseEvent);
 
@@ -32,17 +34,112 @@ impl Event for OverheatedEvent {
 
 pub struct FadeAction(BaseAction);
 
-/*
-class FadeAction(Action):
+impl Action for FadeAction {
+    fn new(
+        _id: String,
+        _name: String,
+        input: Option<serde_json::Map<String, serde_json::Value>>,
+    ) -> FadeAction {
+        FadeAction(BaseAction::new(
+            Uuid::new_v4().to_string(),
+            "fade".to_owned(),
+            input,
+        ))
+    }
 
-    def __init__(self, thing, input_):
-        Action.__init__(self, uuid.uuid4().hex, thing, 'fade', input_=input_)
+    fn set_href_prefix(&mut self, prefix: String) {
+        self.0.set_href_prefix(prefix)
+    }
 
-    def perform_action(self):
-        time.sleep(self.input['duration'] / 1000)
+    fn get_id(&self) -> String {
+        self.0.get_id()
+    }
+
+    fn get_name(&self) -> String {
+        self.0.get_name()
+    }
+
+    fn get_href(&self) -> String {
+        self.0.get_href()
+    }
+
+    fn get_status(&self) -> String {
+        self.0.get_status()
+    }
+
+    fn get_time_requested(&self) -> String {
+        self.0.get_time_requested()
+    }
+
+    fn get_time_completed(&self) -> Option<String> {
+        self.0.get_time_completed()
+    }
+
+    fn get_input(&self) -> Option<serde_json::Map<String, serde_json::Value>> {
+        self.0.get_input()
+    }
+
+    fn start(&mut self) {
+        self.0.start()
+    }
+
+    fn perform_action(&self) {
+        thread::sleep(time::Duration::from_millis(
+            self.get_input()
+                .unwrap()
+                .get("duration")
+                .unwrap()
+                .as_u64()
+                .unwrap(),
+        ));
+        /* TODO
         self.thing.set_property('level', self.input['level'])
         self.thing.add_event(OverheatedEvent(self.thing, 102))
-*/
+        */
+    }
+
+    fn cancel(&self) {
+        self.0.cancel()
+    }
+
+    fn finish(&mut self) {
+        self.0.finish()
+    }
+
+    fn notify_all(&self) {
+        self.0.notify_all()
+    }
+}
+
+impl Observable for FadeAction {
+    fn register(&mut self, observer: Arc<ActionObserver>) {
+        self.0.register(observer)
+    }
+}
+
+struct Generator;
+
+impl ActionGenerator for Generator {
+    fn generate(&self, name: String, input: Option<&serde_json::Value>) -> Option<Box<Action>> {
+        let input = match input {
+            Some(v) => match v.as_object() {
+                Some(o) => Some(o.clone()),
+                None => None,
+            },
+            None => None,
+        };
+
+        let name: &str = &name;
+        match name {
+            "fade" => Some(Box::new(FadeAction::new(
+                "".to_owned(),
+                "".to_owned(),
+                input,
+            ))),
+            _ => None,
+        }
+    }
+}
 
 fn make_thing() -> RwLock<Box<Thing + 'static>> {
     let mut thing = BaseThing::new(
@@ -121,6 +218,6 @@ fn main() {
     // If adding more than one thing here, be sure to set the `name`
     // parameter to some string, which will be broadcast via mDNS.
     // In the single thing case, the thing's name will be broadcast.
-    let server = WebThingServer::new(things, None, Some(8888), None);
+    let server = WebThingServer::new(things, None, Some(8888), None, Box::new(Generator));
     server.start();
 }

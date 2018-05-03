@@ -6,14 +6,21 @@ use actix_web::{middleware, pred, server, ws, App, Error, HttpRequest, HttpRespo
 use mdns;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
+use std::marker::{Send, Sync};
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 
+use super::action::Action;
 use super::thing::Thing;
 use super::utils::get_ip;
 
+pub trait ActionGenerator: Send + Sync {
+    fn generate(&self, name: String, input: Option<&serde_json::Value>) -> Option<Box<Action>>;
+}
+
 pub struct AppState {
     things: Arc<Vec<RwLock<Box<Thing>>>>,
+    action_generator: Arc<Box<ActionGenerator>>,
 }
 
 impl AppState {
@@ -48,12 +55,17 @@ impl AppState {
     fn get_things(&self) -> Arc<Vec<RwLock<Box<Thing>>>> {
         self.things.clone()
     }
+
+    fn get_action_generator(&self) -> Arc<Box<ActionGenerator>> {
+        self.action_generator.clone()
+    }
 }
 
 pub struct ThingWebSocket {
     id: String,
     thing_id: usize,
     things: Arc<Vec<RwLock<Box<Thing>>>>,
+    action_generator: Arc<Box<ActionGenerator>>,
 }
 
 impl ThingWebSocket {
@@ -157,22 +169,34 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                             );
                         }
                     },
-                    "requestAction" => {
-                        for (action_name, action_params) in data.iter() {
-                            let action = self.get_thing()
+                    "requestAction" => for (action_name, action_params) in data.iter() {
+                        let action = self.action_generator
+                            .generate(action_name.to_string(), Some(action_params));
+
+                        match action {
+                            Some(mut action) => match self.get_thing()
                                 .write()
                                 .unwrap()
-                                .perform_action(action_name.to_string(), Some(action_params));
-
-                            match action {
-                                Some(mut action) => {
-                                    // Start the action
-                                    // TODO: do this in the background
-                                    action.start();
-                                }
-                                None => {
+                                .add_action(action, Some(action_params))
+                            {
+                                Ok(_) => (),
+                                Err(e) => {
                                     return ctx.text(format!(
                                         r#"
+                                                {{
+                                                    "messageType": "error",
+                                                    "data": {{
+                                                        "status": "400 Bad Request",
+                                                        "message": "Failed to start action: {}"
+                                                    }}
+                                                }}"#,
+                                        e
+                                    ));
+                                }
+                            },
+                            None => {
+                                return ctx.text(format!(
+                                    r#"
                                         {{
                                             "messageType": "error",
                                             "data": {{
@@ -181,12 +205,11 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                                                 "request": {}
                                             }}
                                         }}"#,
-                                        text
-                                    ));
-                                }
+                                    text
+                                ));
                             }
                         }
-                    }
+                    },
                     "addEventSubscription" => unsafe {
                         for event_name in data.keys() {
                             self.get_thing().write().unwrap().add_event_subscriber(
@@ -257,6 +280,7 @@ fn thing_handler_WS(req: HttpRequest<AppState>) -> Result<HttpResponse, Error> {
                 id: Uuid::new_v4().to_string(),
                 thing_id: thing_id,
                 things: req.state().get_things(),
+                action_generator: req.state().get_action_generator(),
             });
             thing.write().unwrap().add_subscriber(Arc::downgrade(&ws));
             ws::start(req.clone(), Arc::try_unwrap(ws.clone()).ok().unwrap())
@@ -383,21 +407,30 @@ fn actions_handler_POST(
     let mut response: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
     for (action_name, action_params) in message.iter() {
         let input = action_params.get("input");
-        let action = thing
-            .write()
-            .unwrap()
-            .perform_action(action_name.to_string(), input);
-        if action.is_some() {
-            let mut action = action.unwrap();
-            let description = action.as_action_description();
-            response.insert(
-                action_name.to_string(),
-                description.get(action_name).unwrap().clone(),
-            );
 
-            // Start the action
-            // TODO: do this in the background
-            action.start();
+        let action = req.state()
+            .get_action_generator()
+            .generate(action_name.to_string(), input);
+
+        match action {
+            Some(mut action) => {
+                let description = action.as_action_description();
+
+                match thing
+                    .write()
+                    .unwrap()
+                    .add_action(action, Some(action_params))
+                {
+                    Ok(_) => {
+                        response.insert(
+                            action_name.to_string(),
+                            description.get(action_name).unwrap().clone(),
+                        );
+                    }
+                    Err(_) => (),
+                }
+            }
+            None => (),
         }
     }
 
@@ -531,6 +564,7 @@ impl WebThingServer {
         name: Option<String>,
         port: Option<u16>,
         ssl_options: Option<(String, String)>,
+        action_generator: Box<ActionGenerator>,
     ) -> WebThingServer {
         if things.len() > 1 && name.is_none() {
             panic!("name must be set when managing multiple things");
@@ -568,13 +602,16 @@ impl WebThingServer {
         }
 
         let things_arc = Arc::new(things);
+        let generator_arc = Arc::new(action_generator);
 
         let server = if things_arc.len() > 1 {
-            let inner_arc = things_arc.clone();
+            let inner_things_arc = things_arc.clone();
+            let inner_generator_arc = generator_arc.clone();
             server::new(move || {
                 vec![
                     App::with_state(AppState {
-                        things: inner_arc.clone(),
+                        things: inner_things_arc.clone(),
+                        action_generator: inner_generator_arc.clone(),
                     }).middleware(middleware::Logger::default())
                         .resource("/", |r| r.get().f(things_handler_GET))
                         .resource("/{thing_id}", |r| {
@@ -611,11 +648,13 @@ impl WebThingServer {
                 ]
             })
         } else {
-            let inner_arc = things_arc.clone();
+            let inner_things_arc = things_arc.clone();
+            let inner_generator_arc = generator_arc.clone();
             server::new(move || {
                 vec![
                     App::with_state(AppState {
-                        things: inner_arc.clone(),
+                        things: inner_things_arc.clone(),
+                        action_generator: inner_generator_arc.clone(),
                     }).middleware(middleware::Logger::default())
                         .resource("/", |r| {
                             r.route()

@@ -153,11 +153,11 @@ pub trait Thing: Send + Sync {
     /// input_ -- any action inputs
     ///
     /// Returns the action that was created.
-    fn perform_action(
-        &self,
-        action_name: String,
+    fn add_action(
+        &mut self,
+        action: Box<Action>,
         input: Option<&serde_json::Value>,
-    ) -> Option<Box<Action>>;
+    ) -> Result<(), &str>;
 
     /// Remove an existing action.
     ///
@@ -556,27 +556,32 @@ impl Thing for BaseThing {
     /// input_ -- any action inputs
     ///
     /// Returns the action that was created.
-    fn perform_action(
-        &self,
-        action_name: String,
+    fn add_action(
+        &mut self,
+        mut action: Box<Action>,
         input: Option<&serde_json::Value>,
-    ) -> Option<Box<Action>> {
+    ) -> Result<(), &str> {
+        let action_name = action.get_name();
+
         if !self.available_actions.contains_key(&action_name) {
-            return None;
+            return Err("Action type not found");
         }
 
         let action_type = self.available_actions.get(&action_name).unwrap();
         if !action_type.validate_action_input(input) {
-            return None;
+            return Err("Action input invalid");
         }
 
-        None
-        // TODO
-        // action = action_type['class'](self, input_=input_)
-        // action.set_href_prefix(self.href_prefix)
-        // self.action_notify(action)
-        // self.actions[action_name].append(action)
-        // return action
+        unsafe {
+            action.register(Arc::from_raw(self));
+        }
+
+        action.set_href_prefix(self.get_href_prefix());
+        self.action_notify(action.as_action_description());
+        action.start();
+        self.actions.get_mut(&action_name).unwrap().push(action);
+
+        Ok(())
     }
 
     /// Remove an existing action.
@@ -745,15 +750,11 @@ impl ActionObserver for BaseThing {
 
 pub struct AvailableAction {
     metadata: serde_json::Map<String, serde_json::Value>,
-    // TODO: class
 }
 
 impl AvailableAction {
     pub fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableAction {
-        AvailableAction {
-            metadata: metadata,
-            //  TODO: class: cls,
-        }
+        AvailableAction { metadata: metadata }
     }
 
     pub fn set_href_prefix(&mut self, prefix: String) {
@@ -767,10 +768,6 @@ impl AvailableAction {
 
     pub fn get_metadata(&self) -> &serde_json::Map<String, serde_json::Value> {
         &self.metadata
-    }
-
-    pub fn get_cls(&self) {
-        // TODO
     }
 
     pub fn validate_action_input(&self, input: Option<&serde_json::Value>) -> bool {
