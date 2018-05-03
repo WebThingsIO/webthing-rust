@@ -2,7 +2,7 @@
 use serde_json;
 use std::collections::HashMap;
 use std::marker::{Send, Sync};
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, RwLock, Weak};
 use valico::json_schema;
 
 use super::action::{Action, ActionObserver};
@@ -130,7 +130,11 @@ pub trait Thing: Send + Sync {
     /// action_id -- ID of the action
     ///
     /// Returns the requested action if found, else None.
-    fn get_action(&self, action_name: String, action_id: String) -> Option<&Box<Action>>;
+    fn get_action(
+        &self,
+        action_name: String,
+        action_id: String,
+    ) -> Option<Arc<RwLock<Box<Action>>>>;
 
     /// Add a new event and notify subscribers.
     ///
@@ -155,7 +159,7 @@ pub trait Thing: Send + Sync {
     /// Returns the action that was created.
     fn add_action(
         &mut self,
-        action: Box<Action>,
+        action: Arc<RwLock<Box<Action>>>,
         input: Option<&serde_json::Value>,
     ) -> Result<(), &str>;
 
@@ -165,18 +169,16 @@ pub trait Thing: Send + Sync {
     /// action_id -- ID of the action
     ///
     /// Returns a boolean indicating the presence of the action.
-    fn remove_action(&self, action_name: String, action_id: String) -> bool;
+    fn remove_action(&mut self, action_name: String, action_id: String) -> bool;
 
     /// Add an available action.
     ///
     /// name -- name of the action
     /// metadata -- action metadata, i.e. type, description, etc., as a dict
-    /// cls -- class to instantiate for this action
     fn add_available_action(
         &mut self,
         name: String,
         metadata: serde_json::Map<String, serde_json::Value>,
-        //, cls) {
     );
 
     /// Add a new websocket subscriber.
@@ -215,7 +217,7 @@ pub struct BaseThing {
     properties: HashMap<String, Box<Property>>,
     available_actions: HashMap<String, AvailableAction>,
     available_events: HashMap<String, AvailableEvent>,
-    actions: HashMap<String, Vec<Box<Action>>>,
+    actions: HashMap<String, Vec<Arc<RwLock<Box<Action>>>>>,
     events: Vec<Box<Event>>,
     subscribers: HashMap<String, Weak<ThingWebSocket>>,
     href_prefix: String,
@@ -313,6 +315,8 @@ impl Thing for BaseThing {
             links.push(ui_link);
         }
 
+        description.insert("links".to_owned(), json!(links));
+
         let mut actions = serde_json::Map::new();
         for (name, action) in self.available_actions.iter() {
             actions.insert(name.to_string(), json!(action.get_metadata()));
@@ -374,7 +378,7 @@ impl Thing for BaseThing {
 
         for actions in self.actions.values_mut() {
             for action in actions {
-                action.set_href_prefix(prefix.clone());
+                action.write().unwrap().set_href_prefix(prefix.clone());
             }
         }
     }
@@ -435,7 +439,7 @@ impl Thing for BaseThing {
 
         for actions in self.actions.values() {
             for action in actions {
-                descriptions.push(action.as_action_description());
+                descriptions.push(action.read().unwrap().as_action_description());
             }
         }
 
@@ -512,12 +516,16 @@ impl Thing for BaseThing {
     /// action_id -- ID of the action
     ///
     /// Returns the requested action if found, else None.
-    fn get_action(&self, action_name: String, action_id: String) -> Option<&Box<Action>> {
+    fn get_action(
+        &self,
+        action_name: String,
+        action_id: String,
+    ) -> Option<Arc<RwLock<Box<Action>>>> {
         match self.actions.get(&action_name) {
             Some(entry) => {
                 for action in entry {
-                    if action.get_id() == action_id {
-                        return Some(action);
+                    if action.read().unwrap().get_id() == action_id {
+                        return Some(action.clone());
                     }
                 }
 
@@ -558,10 +566,10 @@ impl Thing for BaseThing {
     /// Returns the action that was created.
     fn add_action(
         &mut self,
-        mut action: Box<Action>,
+        action: Arc<RwLock<Box<Action>>>,
         input: Option<&serde_json::Value>,
     ) -> Result<(), &str> {
-        let action_name = action.get_name();
+        let action_name = action.read().unwrap().get_name();
 
         if !self.available_actions.contains_key(&action_name) {
             return Err("Action type not found");
@@ -573,12 +581,14 @@ impl Thing for BaseThing {
         }
 
         unsafe {
-            action.register(Arc::from_raw(self));
+            action.write().unwrap().register(Arc::from_raw(self));
         }
 
-        action.set_href_prefix(self.get_href_prefix());
-        self.action_notify(action.as_action_description());
-        action.start();
+        action
+            .write()
+            .unwrap()
+            .set_href_prefix(self.get_href_prefix());
+        self.action_notify(action.read().unwrap().as_action_description());
         self.actions.get_mut(&action_name).unwrap().push(action);
 
         Ok(())
@@ -590,12 +600,15 @@ impl Thing for BaseThing {
     /// action_id -- ID of the action
     ///
     /// Returns a boolean indicating the presence of the action.
-    fn remove_action(&self, action_name: String, action_id: String) -> bool {
-        let action = self.get_action(action_name, action_id);
+    fn remove_action(&mut self, action_name: String, action_id: String) -> bool {
+        let action = self.get_action(action_name.clone(), action_id.clone());
         match action {
-            Some(a) => {
-                a.cancel();
-                //self.actions[action_name].remove(action)
+            Some(action) => {
+                action.write().unwrap().cancel();
+
+                let mut actions = self.actions.get_mut(&action_name).unwrap();
+                actions.retain(|ref a| a.read().unwrap().get_id() != action_id);
+
                 true
             }
             None => false,
@@ -606,12 +619,10 @@ impl Thing for BaseThing {
     ///
     /// name -- name of the action
     /// metadata -- action metadata, i.e. type, description, etc., as a dict
-    /// cls -- class to instantiate for this action
     fn add_available_action(
         &mut self,
         name: String,
         mut metadata: serde_json::Map<String, serde_json::Value>,
-        //, cls) {
     ) {
         metadata.insert("href".to_owned(), json!(format!("/actions/{}", name)));
 
@@ -705,6 +716,7 @@ impl PropertyObserver for BaseThing {
     ///
     /// property -- the property that changed
     fn property_notify(&self, name: String, value: serde_json::Value) {
+        return;
         let message = json!({
             "messageType": "propertyStatus",
             "data": {

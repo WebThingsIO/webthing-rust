@@ -87,8 +87,15 @@ impl Action for FadeAction {
         self.0.get_thing()
     }
 
+    fn set_status(&mut self, status: String) {
+        self.0.set_status(status)
+    }
+
     fn start(&mut self) {
-        self.0.start()
+        self.set_status("pending".to_owned());
+        self.notify_all();
+        self.perform_action();
+        self.finish();
     }
 
     fn perform_action(&self) {

@@ -81,6 +81,8 @@ pub trait Action: Send + Sync + Observable {
 
     fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>>;
 
+    fn set_status(&mut self, status: String);
+
     /// Start performing the action.
     fn start(&mut self);
 
@@ -185,9 +187,13 @@ impl Action for BaseAction {
         self.thing.upgrade()
     }
 
+    fn set_status(&mut self, status: String) {
+        self.status = status;
+    }
+
     /// Start performing the action.
     fn start(&mut self) {
-        self.status = "pending".to_owned();
+        self.set_status("pending".to_owned());
         self.notify_all();
         self.perform_action();
         self.finish();
@@ -201,7 +207,7 @@ impl Action for BaseAction {
 
     /// Finish performing the action.
     fn finish(&mut self) {
-        self.status = "completed".to_owned();
+        self.set_status("completed".to_owned());
         self.time_completed = Some(timestamp());
         self.notify_all();
     }

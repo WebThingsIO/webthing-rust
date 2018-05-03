@@ -182,39 +182,43 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                             Some(action_params),
                         );
 
-                        match action {
-                            Some(mut action) => match thing
-                                .write()
-                                .unwrap()
-                                .add_action(action, Some(action_params))
-                            {
-                                Ok(_) => (),
-                                Err(e) => {
-                                    return ctx.text(format!(
-                                        r#"
-                                                {{
-                                                    "messageType": "error",
-                                                    "data": {{
-                                                        "status": "400 Bad Request",
-                                                        "message": "Failed to start action: {}"
-                                                    }}
-                                                }}"#,
-                                        e
-                                    ));
-                                }
-                            },
-                            None => {
+                        if action.is_none() {
+                            return ctx.text(format!(
+                                r#"
+                                {{
+                                    "messageType": "error",
+                                    "data": {{
+                                        "status": "400 Bad Request",
+                                        "message": "Invalid action request",
+                                        "request": {}
+                                    }}
+                                }}"#,
+                                text
+                            ));
+                        }
+
+                        let action = Arc::new(RwLock::new(action.unwrap()));
+                        match thing
+                            .write()
+                            .unwrap()
+                            .add_action(action.clone(), Some(action_params))
+                        {
+                            Ok(_) => {
+                                let a = action.clone();
+                                let mut a = a.write().unwrap();
+                                a.start();
+                            }
+                            Err(e) => {
                                 return ctx.text(format!(
                                     r#"
-                                        {{
-                                            "messageType": "error",
-                                            "data": {{
-                                                "status": "400 Bad Request",
-                                                "message": "Invalid action request",
-                                                "request": {}
-                                            }}
-                                        }}"#,
-                                    text
+                                    {{
+                                        "messageType": "error",
+                                        "data": {{
+                                            "status": "400 Bad Request",
+                                            "message": "Failed to start action: {}"
+                                        }}
+                                    }}"#,
+                                    e
                                 ));
                             }
                         }
@@ -421,25 +425,32 @@ fn actions_handler_POST(
             input,
         );
 
-        match action {
-            Some(mut action) => {
-                let description = action.as_action_description();
+        if action.is_some() {
+            let action = Arc::new(RwLock::new(action.unwrap()));
 
-                match thing
-                    .write()
-                    .unwrap()
-                    .add_action(action, Some(action_params))
-                {
-                    Ok(_) => {
-                        response.insert(
-                            action_name.to_string(),
-                            description.get(action_name).unwrap().clone(),
-                        );
-                    }
-                    Err(_) => (),
+            {
+                let mut thing = thing.write().unwrap();
+                let result = thing.add_action(action.clone(), Some(action_params));
+
+                if result.is_err() {
+                    continue;
                 }
             }
-            None => (),
+
+            response.insert(
+                action_name.to_string(),
+                action
+                    .read()
+                    .unwrap()
+                    .as_action_description()
+                    .get(action_name)
+                    .unwrap()
+                    .clone(),
+            );
+
+            let a = action.clone();
+            let mut a = a.write().unwrap();
+            a.start();
         }
     }
 
@@ -482,7 +493,9 @@ fn action_id_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
     if action.is_none() {
         HttpResponse::NotFound().finish()
     } else {
-        HttpResponse::Ok().json(action.unwrap().as_action_description())
+        let action = action.unwrap();
+        let action = action.read().unwrap();
+        HttpResponse::Ok().json(action.as_action_description())
     }
 }
 
