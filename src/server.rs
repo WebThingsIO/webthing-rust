@@ -7,7 +7,7 @@ use mdns;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
 use std::marker::{Send, Sync};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Weak};
 use uuid::Uuid;
 
 use super::action::Action;
@@ -15,11 +15,16 @@ use super::thing::Thing;
 use super::utils::get_ip;
 
 pub trait ActionGenerator: Send + Sync {
-    fn generate(&self, name: String, input: Option<&serde_json::Value>) -> Option<Box<Action>>;
+    fn generate(
+        &self,
+        thing: Weak<RwLock<Box<Thing>>>,
+        name: String,
+        input: Option<&serde_json::Value>,
+    ) -> Option<Box<Action>>;
 }
 
 pub struct AppState {
-    things: Arc<Vec<RwLock<Box<Thing>>>>,
+    things: Arc<Vec<Arc<RwLock<Box<Thing>>>>>,
     action_generator: Arc<Box<ActionGenerator>>,
 }
 
@@ -29,7 +34,7 @@ impl AppState {
     /// thing_id -- ID of the thing to get, in string form
     ///
     /// Returns the thing, or None if not found.
-    fn get_thing(&self, thing_id: Option<&str>) -> Option<&RwLock<Box<Thing>>> {
+    fn get_thing(&self, thing_id: Option<&str>) -> Option<Arc<RwLock<Box<Thing>>>> {
         if self.things.len() > 1 {
             if thing_id.is_none() {
                 return None;
@@ -45,14 +50,14 @@ impl AppState {
             if id >= self.things.len() {
                 None
             } else {
-                Some(&self.things[id])
+                Some(self.things[id].clone())
             }
         } else {
-            Some(&self.things[0])
+            Some(self.things[0].clone())
         }
     }
 
-    fn get_things(&self) -> Arc<Vec<RwLock<Box<Thing>>>> {
+    fn get_things(&self) -> Arc<Vec<Arc<RwLock<Box<Thing>>>>> {
         self.things.clone()
     }
 
@@ -64,7 +69,7 @@ impl AppState {
 pub struct ThingWebSocket {
     id: String,
     thing_id: usize,
-    things: Arc<Vec<RwLock<Box<Thing>>>>,
+    things: Arc<Vec<Arc<RwLock<Box<Thing>>>>>,
     action_generator: Arc<Box<ActionGenerator>>,
 }
 
@@ -73,8 +78,8 @@ impl ThingWebSocket {
         self.id.clone()
     }
 
-    fn get_thing(&self) -> &RwLock<Box<Thing>> {
-        &self.things[self.thing_id]
+    fn get_thing(&self) -> Arc<RwLock<Box<Thing>>> {
+        self.things[self.thing_id].clone()
     }
 }
 
@@ -148,10 +153,11 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
 
                 let msg_type = msg_type.unwrap();
                 let data = data.unwrap();
+                let thing = self.get_thing();
 
                 match msg_type {
                     "setProperty" => for (property_name, property_value) in data.iter() {
-                        if self.get_thing()
+                        if thing
                             .write()
                             .unwrap()
                             .set_property(property_name.to_string(), property_value.clone())
@@ -170,11 +176,14 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                         }
                     },
                     "requestAction" => for (action_name, action_params) in data.iter() {
-                        let action = self.action_generator
-                            .generate(action_name.to_string(), Some(action_params));
+                        let action = self.action_generator.generate(
+                            Arc::downgrade(&self.get_thing()),
+                            action_name.to_string(),
+                            Some(action_params),
+                        );
 
                         match action {
-                            Some(mut action) => match self.get_thing()
+                            Some(mut action) => match thing
                                 .write()
                                 .unwrap()
                                 .add_action(action, Some(action_params))
@@ -212,7 +221,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                     },
                     "addEventSubscription" => unsafe {
                         for event_name in data.keys() {
-                            self.get_thing().write().unwrap().add_event_subscriber(
+                            thing.write().unwrap().add_event_subscriber(
                                 event_name.to_string(),
                                 Arc::downgrade(&Arc::from_raw(self)),
                             );
@@ -235,10 +244,8 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
             }
             ws::Message::Binary(_) => (),
             ws::Message::Close(_) => {
-                self.get_thing()
-                    .write()
-                    .unwrap()
-                    .remove_subscriber(self.get_id());
+                let thing = self.get_thing();
+                thing.write().unwrap().remove_subscriber(self.get_id());
             }
         }
     }
@@ -408,9 +415,11 @@ fn actions_handler_POST(
     for (action_name, action_params) in message.iter() {
         let input = action_params.get("input");
 
-        let action = req.state()
-            .get_action_generator()
-            .generate(action_name.to_string(), input);
+        let action = req.state().get_action_generator().generate(
+            Arc::downgrade(&thing.clone()),
+            action_name.to_string(),
+            input,
+        );
 
         match action {
             Some(mut action) => {
@@ -560,7 +569,7 @@ impl WebThingServer {
     /// port -- port to listen on (defaults to 80)
     /// ssl_options -- dict of SSL options to pass to the tornado server
     pub fn new(
-        mut things: Vec<RwLock<Box<Thing>>>,
+        mut things: Vec<Arc<RwLock<Box<Thing>>>>,
         name: Option<String>,
         port: Option<u16>,
         ssl_options: Option<(String, String)>,

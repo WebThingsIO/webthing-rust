@@ -1,8 +1,9 @@
 /// High-level Action base class implementation.
 use serde_json;
 use std::marker::{Send, Sync};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock, Weak};
 
+use super::thing::Thing;
 use super::utils::timestamp;
 
 pub trait ActionObserver: Send + Sync {
@@ -23,6 +24,7 @@ pub trait Action: Send + Sync + Observable {
         id: String,
         name: String,
         input: Option<serde_json::Map<String, serde_json::Value>>,
+        thing: Weak<RwLock<Box<Thing>>>,
     ) -> Self
     where
         Self: Sized;
@@ -77,6 +79,8 @@ pub trait Action: Send + Sync + Observable {
     /// Get the inputs for this action.
     fn get_input(&self) -> Option<serde_json::Map<String, serde_json::Value>>;
 
+    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>>;
+
     /// Start performing the action.
     fn start(&mut self);
 
@@ -103,6 +107,7 @@ pub struct BaseAction {
     time_requested: String,
     time_completed: Option<String>,
     observers: Vec<Arc<ActionObserver>>,
+    thing: Weak<RwLock<Box<Thing>>>,
 }
 
 /// An Action represents an individual action on a thing.
@@ -116,6 +121,7 @@ impl Action for BaseAction {
         id: String,
         name: String,
         input: Option<serde_json::Map<String, serde_json::Value>>,
+        thing: Weak<RwLock<Box<Thing>>>,
     ) -> BaseAction {
         let href = format!("/actions/{}/{}", name, id);
 
@@ -129,6 +135,7 @@ impl Action for BaseAction {
             time_requested: timestamp(),
             time_completed: None,
             observers: Vec::new(),
+            thing: thing,
         }
     }
 
@@ -172,6 +179,10 @@ impl Action for BaseAction {
     /// Get the inputs for this action.
     fn get_input(&self) -> Option<serde_json::Map<String, serde_json::Value>> {
         self.input.clone()
+    }
+
+    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>> {
+        self.thing.upgrade()
     }
 
     /// Start performing the action.

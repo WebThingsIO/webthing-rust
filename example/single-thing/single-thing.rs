@@ -5,7 +5,7 @@ extern crate uuid;
 extern crate webthing;
 
 use std::{thread, time};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Weak};
 use uuid::Uuid;
 use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Property, Thing,
                WebThingServer};
@@ -39,11 +39,13 @@ impl Action for FadeAction {
         _id: String,
         _name: String,
         input: Option<serde_json::Map<String, serde_json::Value>>,
+        thing: Weak<RwLock<Box<Thing>>>,
     ) -> FadeAction {
         FadeAction(BaseAction::new(
             Uuid::new_v4().to_string(),
             "fade".to_owned(),
             input,
+            thing,
         ))
     }
 
@@ -79,6 +81,10 @@ impl Action for FadeAction {
         self.0.get_input()
     }
 
+    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>> {
+        self.0.get_thing()
+    }
+
     fn start(&mut self) {
         self.0.start()
     }
@@ -92,10 +98,20 @@ impl Action for FadeAction {
                 .as_u64()
                 .unwrap(),
         ));
-        /* TODO
-        self.thing.set_property('level', self.input['level'])
-        self.thing.add_event(OverheatedEvent(self.thing, 102))
-        */
+
+        let thing = self.get_thing();
+        if thing.is_some() {
+            let thing = thing.unwrap();
+            let mut thing = thing.write().unwrap();
+            let _ = thing.set_property(
+                "level".to_owned(),
+                self.get_input().unwrap().get("level").unwrap().clone(),
+            );
+            thing.add_event(Box::new(OverheatedEvent::new(
+                "".to_owned(),
+                Some(json!(102)),
+            )));
+        }
     }
 
     fn cancel(&self) {
@@ -120,7 +136,12 @@ impl Observable for FadeAction {
 struct Generator;
 
 impl ActionGenerator for Generator {
-    fn generate(&self, name: String, input: Option<&serde_json::Value>) -> Option<Box<Action>> {
+    fn generate(
+        &self,
+        thing: Weak<RwLock<Box<Thing>>>,
+        name: String,
+        input: Option<&serde_json::Value>,
+    ) -> Option<Box<Action>> {
         let input = match input {
             Some(v) => match v.as_object() {
                 Some(o) => Some(o.clone()),
@@ -135,13 +156,14 @@ impl ActionGenerator for Generator {
                 "".to_owned(),
                 "".to_owned(),
                 input,
+                thing,
             ))),
             _ => None,
         }
     }
 }
 
-fn make_thing() -> RwLock<Box<Thing + 'static>> {
+fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
         "My Lamp".to_owned(),
         Some("dimmableLight".to_owned()),
@@ -206,13 +228,13 @@ fn make_thing() -> RwLock<Box<Thing + 'static>> {
     let overheated_metadata = overheated_metadata.as_object().unwrap().clone();
     thing.add_available_event("overheated".to_owned(), overheated_metadata);
 
-    RwLock::new(Box::new(thing))
+    Arc::new(RwLock::new(Box::new(thing)))
 }
 
 fn main() {
     env_logger::init();
 
-    let mut things: Vec<RwLock<Box<Thing + 'static>>> = Vec::new();
+    let mut things: Vec<Arc<RwLock<Box<Thing + 'static>>>> = Vec::new();
     things.push(make_thing());
 
     // If adding more than one thing here, be sure to set the `name`

@@ -7,7 +7,7 @@ extern crate webthing;
 
 use rand::Rng;
 use std::{thread, time};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, Weak};
 use uuid::Uuid;
 use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Property, Thing,
                WebThingServer};
@@ -41,11 +41,13 @@ impl Action for FadeAction {
         _id: String,
         _name: String,
         input: Option<serde_json::Map<String, serde_json::Value>>,
+        thing: Weak<RwLock<Box<Thing>>>,
     ) -> FadeAction {
         FadeAction(BaseAction::new(
             Uuid::new_v4().to_string(),
             "fade".to_owned(),
             input,
+            thing,
         ))
     }
 
@@ -81,6 +83,10 @@ impl Action for FadeAction {
         self.0.get_input()
     }
 
+    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>> {
+        self.0.get_thing()
+    }
+
     fn start(&mut self) {
         self.0.start()
     }
@@ -94,10 +100,20 @@ impl Action for FadeAction {
                 .as_u64()
                 .unwrap(),
         ));
-        /* TODO
-        self.thing.set_property('level', self.input['level'])
-        self.thing.add_event(OverheatedEvent(self.thing, 102))
-        */
+
+        let thing = self.get_thing();
+        if thing.is_some() {
+            let thing = thing.unwrap();
+            let mut thing = thing.write().unwrap();
+            let _ = thing.set_property(
+                "level".to_owned(),
+                self.get_input().unwrap().get("level").unwrap().clone(),
+            );
+            thing.add_event(Box::new(OverheatedEvent::new(
+                "".to_owned(),
+                Some(json!(102)),
+            )));
+        }
     }
 
     fn cancel(&self) {
@@ -122,7 +138,12 @@ impl Observable for FadeAction {
 struct Generator;
 
 impl ActionGenerator for Generator {
-    fn generate(&self, name: String, input: Option<&serde_json::Value>) -> Option<Box<Action>> {
+    fn generate(
+        &self,
+        thing: Weak<RwLock<Box<Thing>>>,
+        name: String,
+        input: Option<&serde_json::Value>,
+    ) -> Option<Box<Action>> {
         let input = match input {
             Some(v) => match v.as_object() {
                 Some(o) => Some(o.clone()),
@@ -137,6 +158,7 @@ impl ActionGenerator for Generator {
                 "".to_owned(),
                 "".to_owned(),
                 input,
+                thing,
             ))),
             _ => None,
         }
@@ -144,7 +166,7 @@ impl ActionGenerator for Generator {
 }
 
 /// A dimmable light that logs received commands to stdout.
-fn make_light() -> RwLock<Box<Thing + 'static>> {
+fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
         "My Lamp".to_owned(),
         Some("dimmableLight".to_owned()),
@@ -209,11 +231,11 @@ fn make_light() -> RwLock<Box<Thing + 'static>> {
     let overheated_metadata = overheated_metadata.as_object().unwrap().clone();
     thing.add_available_event("overheated".to_owned(), overheated_metadata);
 
-    RwLock::new(Box::new(thing))
+    Arc::new(RwLock::new(Box::new(thing)))
 }
 
 /// A humidity sensor which updates its measurement every few seconds.
-fn make_sensor() -> RwLock<Box<Thing + 'static>> {
+fn make_sensor() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
         "My Humidity Sensor".to_owned(),
         Some("multiLevelSensor".to_owned()),
@@ -245,35 +267,36 @@ fn make_sensor() -> RwLock<Box<Thing + 'static>> {
         Some(level_description),
     )));
 
-    /* TODO
-    let thing = Arc::new(thing);
-    let cloned = thing.clone();
-    thread::spawn(move || {
-        let mut rng = rand::thread_rng();
-
-        // Mimic an actual sensor updating its reading every couple seconds.
-        loop {
-            let mut t = cloned.clone();
-            thread::sleep(time::Duration::from_millis(3000));
-            let prop = Arc::get_mut(&mut t).unwrap().find_property("level".to_owned()).unwrap();
-            prop.set_value(json!(70.0 * rng.gen_range::<f32>(0.0, 1.0) * (-0.5 + rng.gen_range::<f32>(0.0, 1.0))));
-        }
-    });
-    */
-
-    RwLock::new(Box::new(thing))
+    Arc::new(RwLock::new(Box::new(thing)))
 }
 
 fn main() {
     env_logger::init();
 
-    let mut things: Vec<RwLock<Box<Thing + 'static>>> = Vec::new();
+    let mut things: Vec<Arc<RwLock<Box<Thing + 'static>>>> = Vec::new();
 
     // Create a thing that represents a dimmable light
     things.push(make_light());
 
     // Create a thing that represents a humidity sensor
-    things.push(make_sensor());
+    let sensor = make_sensor();
+    things.push(sensor.clone());
+
+    let cloned = sensor.clone();
+    thread::spawn(move || {
+        let mut rng = rand::thread_rng();
+
+        // Mimic an actual sensor updating its reading every couple seconds.
+        loop {
+            thread::sleep(time::Duration::from_millis(3000));
+            let t = cloned.clone();
+            let mut t = t.write().unwrap();
+            let prop = t.find_property("level".to_owned()).unwrap();
+            let _ = prop.set_value(json!(
+                70.0 * rng.gen_range::<f32>(0.0, 1.0) * (-0.5 + rng.gen_range::<f32>(0.0, 1.0))
+            ));
+        }
+    });
 
     // If adding more than one thing here, be sure to set the `name`
     // parameter to some string, which will be broadcast via mDNS.
