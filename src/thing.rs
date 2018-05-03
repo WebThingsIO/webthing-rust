@@ -572,14 +572,11 @@ impl Thing for BaseThing {
 
         None
         // TODO
-        //        action = action_type['class'](self, input_=input_)
-        //unsafe {
-        //    property.register(Arc::from_raw(self));
-        //}
-        //        action.set_href_prefix(self.href_prefix)
-        //        self.action_notify(action)
-        //        self.actions[action_name].append(action)
-        //        return action
+        // action = action_type['class'](self, input_=input_)
+        // action.set_href_prefix(self.href_prefix)
+        // self.action_notify(action)
+        // self.actions[action_name].append(action)
+        // return action
     }
 
     /// Remove an existing action.

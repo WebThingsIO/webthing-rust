@@ -187,19 +187,14 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                             }
                         }
                     }
-                    "addEventSubscription" => {
+                    "addEventSubscription" => unsafe {
                         for event_name in data.keys() {
-                            /* TODO
-                            self.get_thing()
-                                .write()
-                                .unwrap()
-                                .add_event_subscriber(
-                                    event_name.to_string(),
-                                    Arc::downgrade(&Arc::new(self)),
-                                );
-                            */
+                            self.get_thing().write().unwrap().add_event_subscriber(
+                                event_name.to_string(),
+                                Arc::downgrade(&Arc::from_raw(self)),
+                            );
                         }
-                    }
+                    },
                     unknown => {
                         return ctx.text(format!(
                             r#"
