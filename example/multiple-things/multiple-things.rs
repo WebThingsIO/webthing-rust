@@ -11,7 +11,6 @@ use std::sync::{Arc, RwLock, Weak};
 use uuid::Uuid;
 use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Property, Thing,
                WebThingServer};
-use webthing::action::{ActionObserver, Observable};
 use webthing::server::ActionGenerator;
 
 pub struct OverheatedEvent(BaseEvent);
@@ -92,13 +91,10 @@ impl Action for FadeAction {
     }
 
     fn start(&mut self) {
-        self.set_status("pending".to_owned());
-        self.notify_all();
-        self.perform_action();
-        self.finish();
+        self.0.start()
     }
 
-    fn perform_action(&self) {
+    fn perform_action(&mut self) {
         let thing = self.get_thing();
         if thing.is_none() {
             return;
@@ -106,6 +102,8 @@ impl Action for FadeAction {
 
         let thing = thing.unwrap();
         let input = self.get_input().unwrap().clone();
+        let name = self.get_name();
+        let id = self.get_id();
 
         thread::spawn(move || {
             thread::sleep(time::Duration::from_millis(
@@ -119,25 +117,17 @@ impl Action for FadeAction {
                 "".to_owned(),
                 Some(json!(102)),
             )));
+
+            thing.finish_action(name, id);
         });
     }
 
-    fn cancel(&self) {
+    fn cancel(&mut self) {
         self.0.cancel()
     }
 
     fn finish(&mut self) {
         self.0.finish()
-    }
-
-    fn notify_all(&self) {
-        self.0.notify_all()
-    }
-}
-
-impl Observable for FadeAction {
-    fn register(&mut self, observer: Arc<ActionObserver>) {
-        self.0.register(observer)
     }
 }
 

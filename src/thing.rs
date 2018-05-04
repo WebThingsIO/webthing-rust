@@ -5,9 +5,9 @@ use std::marker::{Send, Sync};
 use std::sync::{Arc, RwLock, Weak};
 use valico::json_schema;
 
-use super::action::{Action, ActionObserver};
+use super::action::Action;
 use super::event::Event;
-use super::property::{Property, PropertyObserver};
+use super::property::Property;
 use super::server::ThingWebSocket;
 
 pub trait Thing: Send + Sync {
@@ -118,10 +118,26 @@ pub trait Thing: Send + Sync {
         property_name: String,
         value: serde_json::Value,
     ) -> Result<(), &'static str> {
-        match self.find_property(property_name) {
-            Some(p) => p.set_value(value),
-            None => Err("Property not found"),
+        {
+            let prop = self.find_property(property_name.clone());
+            if prop.is_none() {
+                return Err("Property not found");
+            }
+
+            let prop = prop.unwrap();
+            match prop.set_value(value) {
+                Ok(_) => (),
+                Err(e) => {
+                    return Err(e);
+                }
+            }
         }
+
+        self.property_notify(
+            property_name.clone(),
+            self.get_property(property_name.clone()).unwrap(),
+        );
+        Ok(())
     }
 
     /// Get an action.
@@ -203,10 +219,24 @@ pub trait Thing: Send + Sync {
     /// ws -- the websocket
     fn remove_event_subscriber(&mut self, name: String, ws_id: String);
 
+    /// Notify all subscribers of a property change.
+    ///
+    /// property -- the property that changed
+    fn property_notify(&self, name: String, value: serde_json::Value);
+
+    /// Notify all subscribers of an action status change.
+    ///
+    /// action -- the action whose status changed
+    fn action_notify(&self, action: serde_json::Map<String, serde_json::Value>);
+
     /// Notify all subscribers of an event.
     ///
     /// event -- the event that occurred
     fn event_notify(&self, name: String, event: serde_json::Map<String, serde_json::Value>);
+
+    fn start_action(&self, name: String, id: String);
+    fn cancel_action(&self, name: String, id: String);
+    fn finish_action(&self, name: String, id: String);
 }
 
 /// A Web Thing.
@@ -464,11 +494,6 @@ impl Thing for BaseThing {
     /// property -- property to add
     fn add_property(&mut self, mut property: Box<Property>) {
         property.set_href_prefix(self.get_href_prefix());
-
-        unsafe {
-            property.register(Arc::from_raw(self));
-        }
-
         self.properties.insert(property.get_name(), property);
     }
 
@@ -580,10 +605,6 @@ impl Thing for BaseThing {
             return Err("Action input invalid");
         }
 
-        unsafe {
-            action.write().unwrap().register(Arc::from_raw(self));
-        }
-
         action
             .write()
             .unwrap()
@@ -680,6 +701,50 @@ impl Thing for BaseThing {
         }
     }
 
+    /// Notify all subscribers of a property change.
+    ///
+    /// property -- the property that changed
+    fn property_notify(&self, name: String, value: serde_json::Value) {
+        let message = json!({
+            "messageType": "propertyStatus",
+            "data": {
+                name: value
+            }
+        });
+
+        for subscriber in self.subscribers.values() {
+            match subscriber.upgrade() {
+                Some(subscriber) => {
+                    /* TODO
+                    subscriber.Context.text(message.to_string());
+                    */
+                }
+                None => (),
+            }
+        }
+    }
+
+    /// Notify all subscribers of an action status change.
+    ///
+    /// action -- the action whose status changed
+    fn action_notify(&self, action: serde_json::Map<String, serde_json::Value>) {
+        let message = json!({
+            "messageType": "actionStatus",
+            "data": action
+        });
+
+        for subscriber in self.subscribers.values() {
+            match subscriber.upgrade() {
+                Some(subscriber) => {
+                    /* TODO
+                    subscriber.Context.text(message.to_string());
+                    */
+                }
+                None => (),
+            }
+        }
+    }
+
     /// Notify all subscribers of an event.
     ///
     /// event -- the event that occurred
@@ -709,53 +774,37 @@ impl Thing for BaseThing {
             }
         }
     }
-}
 
-impl PropertyObserver for BaseThing {
-    /// Notify all subscribers of a property change.
-    ///
-    /// property -- the property that changed
-    fn property_notify(&self, name: String, value: serde_json::Value) {
-        return;
-        let message = json!({
-            "messageType": "propertyStatus",
-            "data": {
-                name: value
+    fn start_action(&self, name: String, id: String) {
+        match self.get_action(name, id) {
+            Some(action) => {
+                let mut a = action.write().unwrap();
+                a.start();
+                self.action_notify(a.as_action_description());
+                a.perform_action();
             }
-        });
-
-        for subscriber in self.subscribers.values() {
-            match subscriber.upgrade() {
-                Some(subscriber) => {
-                    /* TODO
-                    subscriber.Context.text(message.to_string());
-                    */
-                }
-                None => (),
-            }
+            None => (),
         }
     }
-}
 
-impl ActionObserver for BaseThing {
-    /// Notify all subscribers of an action status change.
-    ///
-    /// action -- the action whose status changed
-    fn action_notify(&self, action: serde_json::Map<String, serde_json::Value>) {
-        let message = json!({
-            "messageType": "actionStatus",
-            "data": action
-        });
-
-        for subscriber in self.subscribers.values() {
-            match subscriber.upgrade() {
-                Some(subscriber) => {
-                    /* TODO
-                    subscriber.Context.text(message.to_string());
-                    */
-                }
-                None => (),
+    fn cancel_action(&self, name: String, id: String) {
+        match self.get_action(name, id) {
+            Some(action) => {
+                let mut a = action.write().unwrap();
+                a.cancel();
             }
+            None => (),
+        }
+    }
+
+    fn finish_action(&self, name: String, id: String) {
+        match self.get_action(name, id) {
+            Some(action) => {
+                let mut a = action.write().unwrap();
+                a.finish();
+                self.action_notify(a.as_action_description());
+            }
+            None => (),
         }
     }
 }

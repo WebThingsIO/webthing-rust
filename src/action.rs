@@ -6,15 +6,7 @@ use std::sync::{Arc, RwLock, Weak};
 use super::thing::Thing;
 use super::utils::timestamp;
 
-pub trait ActionObserver: Send + Sync {
-    fn action_notify(&self, action: serde_json::Map<String, serde_json::Value>);
-}
-
-pub trait Observable {
-    fn register(&mut self, observer: Arc<ActionObserver>);
-}
-
-pub trait Action: Send + Sync + Observable {
+pub trait Action: Send + Sync {
     /// Initialize the object.
     ///
     /// id -- ID of this action
@@ -87,16 +79,13 @@ pub trait Action: Send + Sync + Observable {
     fn start(&mut self);
 
     /// Override this with the code necessary to perform the action.
-    fn perform_action(&self);
+    fn perform_action(&mut self);
 
     /// Override this with the code necessary to cancel the action.
-    fn cancel(&self);
+    fn cancel(&mut self);
 
     /// Finish performing the action.
     fn finish(&mut self);
-
-    /// Notify all observers of a change.
-    fn notify_all(&self);
 }
 
 pub struct BaseAction {
@@ -108,7 +97,6 @@ pub struct BaseAction {
     status: String,
     time_requested: String,
     time_completed: Option<String>,
-    observers: Vec<Arc<ActionObserver>>,
     thing: Weak<RwLock<Box<Thing>>>,
 }
 
@@ -136,7 +124,6 @@ impl Action for BaseAction {
             status: "created".to_owned(),
             time_requested: timestamp(),
             time_completed: None,
-            observers: Vec::new(),
             thing: thing,
         }
     }
@@ -194,34 +181,17 @@ impl Action for BaseAction {
     /// Start performing the action.
     fn start(&mut self) {
         self.set_status("pending".to_owned());
-        self.notify_all();
-        self.perform_action();
-        self.finish();
     }
 
     /// Override this with the code necessary to perform the action.
-    fn perform_action(&self) {}
+    fn perform_action(&mut self) {}
 
     /// Override this with the code necessary to cancel the action.
-    fn cancel(&self) {}
+    fn cancel(&mut self) {}
 
     /// Finish performing the action.
     fn finish(&mut self) {
         self.set_status("completed".to_owned());
         self.time_completed = Some(timestamp());
-        self.notify_all();
-    }
-
-    /// Notify all observers of a change.
-    fn notify_all(&self) {
-        for obs in &self.observers {
-            obs.action_notify(self.as_action_description());
-        }
-    }
-}
-
-impl Observable for BaseAction {
-    fn register(&mut self, observer: Arc<ActionObserver>) {
-        self.observers.push(observer);
     }
 }

@@ -1,18 +1,8 @@
 /// High-level Property base class implementation.
 use serde_json;
 use std::marker::{Send, Sync};
-use std::sync::Arc;
 
-pub trait PropertyObserver: Send + Sync {
-    fn property_notify(&self, name: String, value: serde_json::Value);
-}
-
-pub trait Observable {
-    /// Register a new observer.
-    fn register(&mut self, observer: Arc<PropertyObserver>);
-}
-
-pub trait Property: Send + Sync + Observable {
+pub trait Property: Send + Sync {
     /// Initialize the object.
     ///
     /// name -- name of the property
@@ -62,9 +52,6 @@ pub trait Property: Send + Sync + Observable {
 
     /// Get the metadata associated with this property.
     fn get_metadata(&self) -> serde_json::Map<String, serde_json::Value>;
-
-    /// Notify all observers of a change.
-    fn notify_all(&self);
 }
 
 /// A Property represents an individual state value of a thing.
@@ -75,7 +62,6 @@ pub struct BaseProperty {
     href_prefix: String,
     href: String,
     metadata: serde_json::Map<String, serde_json::Value>,
-    observers: Vec<Arc<PropertyObserver>>,
 }
 
 impl Property for BaseProperty {
@@ -104,7 +90,6 @@ impl Property for BaseProperty {
             href_prefix: "".to_owned(),
             href: href,
             metadata: meta,
-            observers: Vec::new(),
         }
     }
 
@@ -129,17 +114,16 @@ impl Property for BaseProperty {
     ///
     /// value -- the value to set
     fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str> {
-        let res = self.forward_value(value.clone());
-        if res.is_err() {
-            return res;
-        }
+        match self.forward_value(value.clone()) {
+            Ok(_) => {
+                if value != self.last_value {
+                    self.last_value = value.clone();
+                }
 
-        if value != self.last_value {
-            self.last_value = value.clone();
+                Ok(())
+            }
+            Err(e) => Err(e),
         }
-
-        self.notify_all();
-        Ok(())
     }
 
     /// Forward the value to the physical (or virtual) device.
@@ -161,19 +145,5 @@ impl Property for BaseProperty {
     /// Get the metadata associated with this property.
     fn get_metadata(&self) -> serde_json::Map<String, serde_json::Value> {
         self.metadata.clone()
-    }
-
-    /// Notify all observers of a change.
-    fn notify_all(&self) {
-        for obs in &self.observers {
-            obs.property_notify(self.get_name(), self.get_value());
-        }
-    }
-}
-
-impl Observable for BaseProperty {
-    /// Register a new observer.
-    fn register(&mut self, observer: Arc<PropertyObserver>) {
-        self.observers.push(observer);
     }
 }

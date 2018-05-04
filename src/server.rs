@@ -197,16 +197,19 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                             ));
                         }
 
-                        let action = Arc::new(RwLock::new(action.unwrap()));
+                        let action = action.unwrap();
+                        let id = action.get_id();
+                        let action = Arc::new(RwLock::new(action));
                         match thing
                             .write()
                             .unwrap()
                             .add_action(action.clone(), Some(action_params))
                         {
                             Ok(_) => {
-                                let a = action.clone();
-                                let mut a = a.write().unwrap();
-                                a.start();
+                                thing
+                                    .read()
+                                    .unwrap()
+                                    .start_action(action_name.to_string(), id);
                             }
                             Err(e) => {
                                 return ctx.text(format!(
@@ -426,7 +429,9 @@ fn actions_handler_POST(
         );
 
         if action.is_some() {
-            let action = Arc::new(RwLock::new(action.unwrap()));
+            let action = action.unwrap();
+            let id = action.get_id();
+            let action = Arc::new(RwLock::new(action));
 
             {
                 let mut thing = thing.write().unwrap();
@@ -448,9 +453,10 @@ fn actions_handler_POST(
                     .clone(),
             );
 
-            let a = action.clone();
-            let mut a = a.write().unwrap();
-            a.start();
+            thing
+                .read()
+                .unwrap()
+                .start_action(action_name.to_string(), id);
         }
     }
 
