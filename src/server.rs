@@ -8,6 +8,7 @@ use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
 use std::marker::{Send, Sync};
 use std::sync::{Arc, RwLock, Weak};
+use std::time::Duration;
 use uuid::Uuid;
 
 use super::action::Action;
@@ -74,12 +75,28 @@ pub struct ThingWebSocket {
 }
 
 impl ThingWebSocket {
-    pub fn get_id(&self) -> String {
+    fn get_id(&self) -> String {
         self.id.clone()
     }
 
     fn get_thing(&self) -> Arc<RwLock<Box<Thing>>> {
         self.things[self.thing_id].clone()
+    }
+
+    fn drain_queue(&self, ctx: &mut ws::WebsocketContext<Self, AppState>) {
+        ctx.run_later(Duration::from_millis(200), |act, ctx| {
+            let thing = act.get_thing();
+            let mut thing = thing.write().unwrap();
+
+            let drains = thing.drain_queue(act.get_id());
+            for iter in drains {
+                for message in iter {
+                    ctx.text(message);
+                }
+            }
+
+            act.drain_queue(ctx);
+        });
     }
 }
 
@@ -88,6 +105,10 @@ impl Actor for ThingWebSocket {
 }
 
 impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
+    fn started(&mut self, ctx: &mut Self::Context) {
+        self.drain_queue(ctx);
+    }
+
     fn handle(&mut self, msg: ws::Message, ctx: &mut Self::Context) {
         match msg {
             ws::Message::Ping(msg) => ctx.pong(&msg),
@@ -176,10 +197,11 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                         }
                     },
                     "requestAction" => for (action_name, action_params) in data.iter() {
+                        let input = action_params.get("input");
                         let action = self.action_generator.generate(
                             Arc::downgrade(&self.get_thing()),
                             action_name.to_string(),
-                            Some(action_params),
+                            input,
                         );
 
                         if action.is_none() {
@@ -200,18 +222,12 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                         let action = action.unwrap();
                         let id = action.get_id();
                         let action = Arc::new(RwLock::new(action));
-                        match thing
-                            .write()
-                            .unwrap()
-                            .add_action(action.clone(), Some(action_params))
+
                         {
-                            Ok(_) => {
-                                thing
-                                    .read()
-                                    .unwrap()
-                                    .start_action(action_name.to_string(), id);
-                            }
-                            Err(e) => {
+                            let mut thing = thing.write().unwrap();
+                            let result = thing.add_action(action.clone(), input);
+
+                            if result.is_err() {
                                 return ctx.text(format!(
                                     r#"
                                     {{
@@ -221,18 +237,21 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                                             "message": "Failed to start action: {}"
                                         }}
                                     }}"#,
-                                    e
+                                    result.unwrap_err()
                                 ));
                             }
                         }
+
+                        thing
+                            .write()
+                            .unwrap()
+                            .start_action(action_name.to_string(), id);
                     },
-                    "addEventSubscription" => unsafe {
-                        for event_name in data.keys() {
-                            thing.write().unwrap().add_event_subscriber(
-                                event_name.to_string(),
-                                Arc::downgrade(&Arc::from_raw(self)),
-                            );
-                        }
+                    "addEventSubscription" => for event_name in data.keys() {
+                        thing
+                            .write()
+                            .unwrap()
+                            .add_event_subscriber(event_name.to_string(), self.get_id());
                     },
                     unknown => {
                         return ctx.text(format!(
@@ -290,14 +309,14 @@ fn thing_handler_WS(req: HttpRequest<AppState>) -> Result<HttpResponse, Error> {
                 None => 0,
                 Some(id) => id.parse::<usize>().unwrap(),
             };
-            let ws = Arc::new(ThingWebSocket {
+            let ws = ThingWebSocket {
                 id: Uuid::new_v4().to_string(),
                 thing_id: thing_id,
                 things: req.state().get_things(),
                 action_generator: req.state().get_action_generator(),
-            });
-            thing.write().unwrap().add_subscriber(Arc::downgrade(&ws));
-            ws::start(req.clone(), Arc::try_unwrap(ws.clone()).ok().unwrap())
+            };
+            thing.write().unwrap().add_subscriber(ws.get_id());
+            ws::start(req.clone(), ws)
         }
     }
 }
@@ -454,7 +473,7 @@ fn actions_handler_POST(
             );
 
             thing
-                .read()
+                .write()
                 .unwrap()
                 .start_action(action_name.to_string(), id);
         }

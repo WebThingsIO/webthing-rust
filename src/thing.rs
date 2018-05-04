@@ -2,13 +2,13 @@
 use serde_json;
 use std::collections::HashMap;
 use std::marker::{Send, Sync};
-use std::sync::{Arc, RwLock, Weak};
+use std::sync::{Arc, RwLock};
+use std::vec::Drain;
 use valico::json_schema;
 
 use super::action::Action;
 use super::event::Event;
 use super::property::Property;
-use super::server::ThingWebSocket;
 
 pub trait Thing: Send + Sync {
     /// Initialize the object.
@@ -125,7 +125,7 @@ pub trait Thing: Send + Sync {
             }
 
             let prop = prop.unwrap();
-            match prop.set_value(value) {
+            match prop.set_value(value.clone()) {
                 Ok(_) => (),
                 Err(e) => {
                     return Err(e);
@@ -133,10 +133,7 @@ pub trait Thing: Send + Sync {
             }
         }
 
-        self.property_notify(
-            property_name.clone(),
-            self.get_property(property_name.clone()).unwrap(),
-        );
+        self.property_notify(property_name, value);
         Ok(())
     }
 
@@ -200,7 +197,7 @@ pub trait Thing: Send + Sync {
     /// Add a new websocket subscriber.
     ///
     /// ws -- the websocket
-    fn add_subscriber(&mut self, ws: Weak<ThingWebSocket>);
+    fn add_subscriber(&mut self, ws_id: String);
 
     /// Remove a websocket subscriber.
     ///
@@ -211,7 +208,7 @@ pub trait Thing: Send + Sync {
     ///
     /// name -- name of the event
     /// ws -- the websocket
-    fn add_event_subscriber(&mut self, name: String, ws: Weak<ThingWebSocket>);
+    fn add_event_subscriber(&mut self, name: String, ws_id: String);
 
     /// Remove a websocket subscriber from an event.
     ///
@@ -222,21 +219,23 @@ pub trait Thing: Send + Sync {
     /// Notify all subscribers of a property change.
     ///
     /// property -- the property that changed
-    fn property_notify(&self, name: String, value: serde_json::Value);
+    fn property_notify(&mut self, name: String, value: serde_json::Value);
 
     /// Notify all subscribers of an action status change.
     ///
     /// action -- the action whose status changed
-    fn action_notify(&self, action: serde_json::Map<String, serde_json::Value>);
+    fn action_notify(&mut self, action: serde_json::Map<String, serde_json::Value>);
 
     /// Notify all subscribers of an event.
     ///
     /// event -- the event that occurred
-    fn event_notify(&self, name: String, event: serde_json::Map<String, serde_json::Value>);
+    fn event_notify(&mut self, name: String, event: serde_json::Map<String, serde_json::Value>);
 
-    fn start_action(&self, name: String, id: String);
-    fn cancel_action(&self, name: String, id: String);
-    fn finish_action(&self, name: String, id: String);
+    fn start_action(&mut self, name: String, id: String);
+    fn cancel_action(&mut self, name: String, id: String);
+    fn finish_action(&mut self, name: String, id: String);
+
+    fn drain_queue(&mut self, id: String) -> Vec<Drain<String>>;
 }
 
 /// A Web Thing.
@@ -249,7 +248,7 @@ pub struct BaseThing {
     available_events: HashMap<String, AvailableEvent>,
     actions: HashMap<String, Vec<Arc<RwLock<Box<Action>>>>>,
     events: Vec<Box<Event>>,
-    subscribers: HashMap<String, Weak<ThingWebSocket>>,
+    subscribers: HashMap<String, Vec<String>>,
     href_prefix: String,
     ws_href: Option<String>,
     ui_href: Option<String>,
@@ -596,13 +595,15 @@ impl Thing for BaseThing {
     ) -> Result<(), &str> {
         let action_name = action.read().unwrap().get_name();
 
-        if !self.available_actions.contains_key(&action_name) {
-            return Err("Action type not found");
-        }
+        {
+            if !self.available_actions.contains_key(&action_name) {
+                return Err("Action type not found");
+            }
 
-        let action_type = self.available_actions.get(&action_name).unwrap();
-        if !action_type.validate_action_input(input) {
-            return Err("Action input invalid");
+            let action_type = self.available_actions.get(&action_name).unwrap();
+            if !action_type.validate_action_input(input) {
+                return Err("Action input invalid");
+            }
         }
 
         action
@@ -655,13 +656,8 @@ impl Thing for BaseThing {
     /// Add a new websocket subscriber.
     ///
     /// ws -- the websocket
-    fn add_subscriber(&mut self, ws: Weak<ThingWebSocket>) {
-        match ws.upgrade() {
-            Some(ws) => {
-                self.subscribers.insert(ws.get_id(), Arc::downgrade(&ws));
-            }
-            None => (),
-        }
+    fn add_subscriber(&mut self, ws_id: String) {
+        self.subscribers.insert(ws_id, Vec::new());
     }
 
     /// Remove a websocket subscriber.
@@ -679,12 +675,12 @@ impl Thing for BaseThing {
     ///
     /// name -- name of the event
     /// ws -- the websocket
-    fn add_event_subscriber(&mut self, name: String, ws: Weak<ThingWebSocket>) {
+    fn add_event_subscriber(&mut self, name: String, ws_id: String) {
         if self.available_events.contains_key(&name) {
             self.available_events
                 .get_mut(&name)
                 .unwrap()
-                .add_subscriber(ws);
+                .add_subscriber(ws_id);
         }
     }
 
@@ -704,51 +700,37 @@ impl Thing for BaseThing {
     /// Notify all subscribers of a property change.
     ///
     /// property -- the property that changed
-    fn property_notify(&self, name: String, value: serde_json::Value) {
+    fn property_notify(&mut self, name: String, value: serde_json::Value) {
         let message = json!({
             "messageType": "propertyStatus",
             "data": {
                 name: value
             }
-        });
+        }).to_string();
 
-        for subscriber in self.subscribers.values() {
-            match subscriber.upgrade() {
-                Some(subscriber) => {
-                    /* TODO
-                    subscriber.Context.text(message.to_string());
-                    */
-                }
-                None => (),
-            }
-        }
+        self.subscribers
+            .values_mut()
+            .for_each(|queue| queue.push(message.clone()));
     }
 
     /// Notify all subscribers of an action status change.
     ///
     /// action -- the action whose status changed
-    fn action_notify(&self, action: serde_json::Map<String, serde_json::Value>) {
+    fn action_notify(&mut self, action: serde_json::Map<String, serde_json::Value>) {
         let message = json!({
             "messageType": "actionStatus",
             "data": action
-        });
+        }).to_string();
 
-        for subscriber in self.subscribers.values() {
-            match subscriber.upgrade() {
-                Some(subscriber) => {
-                    /* TODO
-                    subscriber.Context.text(message.to_string());
-                    */
-                }
-                None => (),
-            }
-        }
+        self.subscribers
+            .values_mut()
+            .for_each(|queue| queue.push(message.clone()));
     }
 
     /// Notify all subscribers of an event.
     ///
     /// event -- the event that occurred
-    fn event_notify(&self, name: String, event: serde_json::Map<String, serde_json::Value>) {
+    fn event_notify(&mut self, name: String, event: serde_json::Map<String, serde_json::Value>) {
         if !self.available_events.contains_key(&name) {
             return;
         }
@@ -756,26 +738,17 @@ impl Thing for BaseThing {
         let message = json!({
             "messageType": "event",
             "data": event,
-        });
+        }).to_string();
 
-        for subscriber in self.available_events
-            .get(&name)
+        self.available_events
+            .get_mut(&name)
             .unwrap()
             .get_subscribers()
-            .values()
-        {
-            match subscriber.upgrade() {
-                Some(subscriber) => {
-                    /* TODO
-                    subscriber.Context.text(message.to_string());
-                    */
-                }
-                None => (),
-            }
-        }
+            .values_mut()
+            .for_each(|queue| queue.push(message.clone()));
     }
 
-    fn start_action(&self, name: String, id: String) {
+    fn start_action(&mut self, name: String, id: String) {
         match self.get_action(name, id) {
             Some(action) => {
                 let mut a = action.write().unwrap();
@@ -787,7 +760,7 @@ impl Thing for BaseThing {
         }
     }
 
-    fn cancel_action(&self, name: String, id: String) {
+    fn cancel_action(&mut self, name: String, id: String) {
         match self.get_action(name, id) {
             Some(action) => {
                 let mut a = action.write().unwrap();
@@ -797,7 +770,7 @@ impl Thing for BaseThing {
         }
     }
 
-    fn finish_action(&self, name: String, id: String) {
+    fn finish_action(&mut self, name: String, id: String) {
         match self.get_action(name, id) {
             Some(action) => {
                 let mut a = action.write().unwrap();
@@ -806,6 +779,27 @@ impl Thing for BaseThing {
             }
             None => (),
         }
+    }
+
+    fn drain_queue(&mut self, id: String) -> Vec<Drain<String>> {
+        let mut drains: Vec<Drain<String>> = Vec::new();
+        match self.subscribers.get_mut(&id) {
+            Some(v) => {
+                drains.push(v.drain(..));
+            }
+            None => (),
+        }
+
+        self.available_events.values_mut().for_each(|evt| {
+            match evt.get_subscribers().get_mut(&id) {
+                Some(v) => {
+                    drains.push(v.drain(..));
+                }
+                None => (),
+            }
+        });
+
+        drains
     }
 }
 
@@ -855,7 +849,7 @@ impl AvailableAction {
 
 pub struct AvailableEvent {
     metadata: serde_json::Map<String, serde_json::Value>,
-    subscribers: HashMap<String, Weak<ThingWebSocket>>,
+    subscribers: HashMap<String, Vec<String>>,
 }
 
 impl AvailableEvent {
@@ -879,20 +873,15 @@ impl AvailableEvent {
         &self.metadata
     }
 
-    pub fn add_subscriber(&mut self, ws: Weak<ThingWebSocket>) {
-        match ws.upgrade() {
-            Some(ws) => {
-                self.subscribers.insert(ws.get_id(), Arc::downgrade(&ws));
-            }
-            None => (),
-        }
+    pub fn add_subscriber(&mut self, ws_id: String) {
+        self.subscribers.insert(ws_id, Vec::new());
     }
 
     pub fn remove_subscriber(&mut self, ws_id: String) {
         self.subscribers.remove(&ws_id);
     }
 
-    pub fn get_subscribers(&self) -> &HashMap<String, Weak<ThingWebSocket>> {
-        &self.subscribers
+    pub fn get_subscribers(&mut self) -> &mut HashMap<String, Vec<String>> {
+        &mut self.subscribers
     }
 }
