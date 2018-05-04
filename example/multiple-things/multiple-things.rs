@@ -286,11 +286,19 @@ fn main() {
         loop {
             thread::sleep(time::Duration::from_millis(3000));
             let t = cloned.clone();
-            let mut t = t.write().unwrap();
-            let prop = t.find_property("level".to_owned()).unwrap();
-            let _ = prop.set_value(json!(
+            let new_value = json!(
                 70.0 * rng.gen_range::<f32>(0.0, 1.0) * (-0.5 + rng.gen_range::<f32>(0.0, 1.0))
-            ));
+            );
+
+            {
+                let mut t = t.write().unwrap();
+                let prop = t.find_property("level".to_owned()).unwrap();
+                let _ = prop.set_value(new_value.clone());
+            }
+
+            t.write()
+                .unwrap()
+                .property_notify("level".to_owned(), new_value);
         }
     });
 
