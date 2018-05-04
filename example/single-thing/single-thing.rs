@@ -97,28 +97,27 @@ impl Action for FadeAction {
     }
 
     fn perform_action(&self) {
-        thread::sleep(time::Duration::from_millis(
-            self.get_input()
-                .unwrap()
-                .get("duration")
-                .unwrap()
-                .as_u64()
-                .unwrap(),
-        ));
-
         let thing = self.get_thing();
-        if thing.is_some() {
-            let thing = thing.unwrap();
+        if thing.is_none() {
+            return;
+        }
+
+        let thing = thing.unwrap();
+        let input = self.get_input().unwrap().clone();
+
+        thread::spawn(move || {
+            thread::sleep(time::Duration::from_millis(
+                input.get("duration").unwrap().as_u64().unwrap(),
+            ));
+
+            let thing = thing.clone();
             let mut thing = thing.write().unwrap();
-            let _ = thing.set_property(
-                "level".to_owned(),
-                self.get_input().unwrap().get("level").unwrap().clone(),
-            );
+            let _ = thing.set_property("level".to_owned(), input.get("level").unwrap().clone());
             thing.add_event(Box::new(OverheatedEvent::new(
                 "".to_owned(),
                 Some(json!(102)),
             )));
-        }
+        });
     }
 
     fn cancel(&self) {
