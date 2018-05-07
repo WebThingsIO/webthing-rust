@@ -9,8 +9,9 @@ use rand::Rng;
 use std::{thread, time};
 use std::sync::{Arc, RwLock, Weak};
 use uuid::Uuid;
-use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Property, Thing,
+use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Thing,
                WebThingServer};
+use webthing::property::ValueForwarder;
 use webthing::server::ActionGenerator;
 
 pub struct OverheatedEvent(BaseEvent);
@@ -161,6 +162,24 @@ impl ActionGenerator for Generator {
     }
 }
 
+struct OnValueForwarder;
+
+impl ValueForwarder for OnValueForwarder {
+    fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str> {
+        println!("On-State is now {}", value);
+        Ok(value)
+    }
+}
+
+struct LevelValueForwarder;
+
+impl ValueForwarder for LevelValueForwarder {
+    fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str> {
+        println!("New light level is {}", value);
+        Ok(value)
+    }
+}
+
 /// A dimmable light that logs received commands to stdout.
 fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
@@ -177,9 +196,10 @@ fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
     thing.add_property(Box::new(BaseProperty::new(
         "on".to_owned(),
         json!(true),
-        false,
+        Some(Box::new(OnValueForwarder)),
         Some(on_description),
     )));
+    // TODO: log new state
 
     let level_description = json!({
         "type": "number",
@@ -191,9 +211,10 @@ fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
     thing.add_property(Box::new(BaseProperty::new(
         "level".to_owned(),
         json!(50),
-        false,
+        Some(Box::new(LevelValueForwarder)),
         Some(level_description),
     )));
+    // TODO: log new level
 
     let fade_metadata = json!({
         "description": "Fade the lamp to a given level",
@@ -246,7 +267,7 @@ fn make_sensor() -> Arc<RwLock<Box<Thing + 'static>>> {
     thing.add_property(Box::new(BaseProperty::new(
         "on".to_owned(),
         json!(true),
-        true,
+        None,
         Some(on_description),
     )));
 
@@ -259,7 +280,7 @@ fn make_sensor() -> Arc<RwLock<Box<Thing + 'static>>> {
     thing.add_property(Box::new(BaseProperty::new(
         "level".to_owned(),
         json!(0),
-        true,
+        None,
         Some(level_description),
     )));
 

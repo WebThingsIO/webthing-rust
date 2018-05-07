@@ -38,6 +38,15 @@ Now we can add the required properties.
 The **`on`** property reports and sets the on/off state of the light. For our purposes, we just want to log the new state if the light is switched on/off.
 
 ```rust
+struct OnValueForwarder;
+
+impl ValueForwarder for OnValueForwarder {
+    fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str> {
+        println!("On-State is now {}", value);
+        Ok(value)
+    }
+}
+
 let on_description = json!({
     "type": "boolean",
     "description": "Whether the lamp is turned on"
@@ -46,7 +55,7 @@ let on_description = on_description.as_object().unwrap().clone();
 thing.add_property(Box::new(BaseProperty::new(
     "on".to_owned(),
     json!(true),
-    false,
+    Some(Box::new(OnValueForwarder)),
     Some(on_description),
 )));
 ```
@@ -54,6 +63,15 @@ thing.add_property(Box::new(BaseProperty::new(
 The **`level`** property reports the brightness level of the light and sets the level. Like before, instead of actually setting the level of a light, we just log the level to std::out.
 
 ```rust
+struct LevelValueForwarder;
+
+impl ValueForwarder for LevelValueForwarder {
+    fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str> {
+        println!("New light level is {}", value);
+        Ok(value)
+    }
+}
+
 let level_description = json!({
     "type": "number",
     "description": "The level of light from 0-100",
@@ -64,7 +82,7 @@ let level_description = level_description.as_object().unwrap().clone();
 thing.add_property(Box::new(BaseProperty::new(
     "level".to_owned(),
     json!(50),
-    false,
+    Some(Box::new(LevelValueForwarder)),
     Some(level_description),
 )));
 ```
@@ -118,7 +136,7 @@ Then we create and add the appropriate properties:
     thing.add_property(Box::new(BaseProperty::new(
         "on".to_owned(),
         json!(true),
-        true,
+        None,
         Some(on_description),
     )));
     ```
@@ -136,7 +154,7 @@ Then we create and add the appropriate properties:
     thing.add_property(Box::new(BaseProperty::new(
         "level".to_owned(),
         json!(0),
-        true,
+        None,
         Some(level_description),
     )));
     ```

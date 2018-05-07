@@ -2,21 +2,11 @@
 use serde_json;
 use std::marker::{Send, Sync};
 
-pub trait Property: Send + Sync {
-    /// Initialize the object.
-    ///
-    /// name -- name of the property
-    /// value -- Value object to hold the property value
-    /// metadata -- property metadata, i.e. type, description, unit, etc., as a Map
-    fn new(
-        name: String,
-        initial_value: serde_json::Value,
-        read_only: bool,
-        metadata: Option<serde_json::Map<String, serde_json::Value>>,
-    ) -> Self
-    where
-        Self: Sized;
+pub trait ValueForwarder: Send + Sync {
+    fn set_value(&mut self, serde_json::Value) -> Result<serde_json::Value, &'static str>;
+}
 
+pub trait Property: Send + Sync {
     /// Get the property description.
     ///
     /// Returns a JSON value describing the property.
@@ -37,43 +27,38 @@ pub trait Property: Send + Sync {
     /// Get the current property value.
     fn get_value(&self) -> serde_json::Value;
 
-    /// Set the current value of the property.
-    ///
-    /// value -- the value to set
-    fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str>;
-
-    /// Forward the value to the physical (or virtual) device.
-    ///
-    /// value -- value to forward
-    fn forward_value(&self, _value: serde_json::Value) -> Result<(), &'static str>;
-
     /// Get the name of this property.
     fn get_name(&self) -> String;
 
     /// Get the metadata associated with this property.
     fn get_metadata(&self) -> serde_json::Map<String, serde_json::Value>;
+
+    /// Set the current value of the property.
+    ///
+    /// value -- the value to set
+    fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str>;
 }
 
 /// A Property represents an individual state value of a thing.
 pub struct BaseProperty {
     name: String,
     last_value: serde_json::Value,
-    read_only: bool,
+    value_forwarder: Option<Box<ValueForwarder>>,
     href_prefix: String,
     href: String,
     metadata: serde_json::Map<String, serde_json::Value>,
 }
 
-impl Property for BaseProperty {
+impl BaseProperty {
     /// Initialize the object.
     ///
     /// name -- name of the property
     /// value -- Value object to hold the property value
     /// metadata -- property metadata, i.e. type, description, unit, etc., as a Map
-    fn new(
+    pub fn new(
         name: String,
         initial_value: serde_json::Value,
-        read_only: bool,
+        value_forwarder: Option<Box<ValueForwarder>>,
         metadata: Option<serde_json::Map<String, serde_json::Value>>,
     ) -> BaseProperty {
         let meta = match metadata {
@@ -86,13 +71,15 @@ impl Property for BaseProperty {
         BaseProperty {
             name: name,
             last_value: initial_value,
-            read_only: read_only,
+            value_forwarder: value_forwarder,
             href_prefix: "".to_owned(),
             href: href,
             metadata: meta,
         }
     }
+}
 
+impl Property for BaseProperty {
     /// Set the prefix of any hrefs associated with this property.
     ///
     /// prefix -- the prefix
@@ -110,33 +97,6 @@ impl Property for BaseProperty {
         self.last_value.clone()
     }
 
-    /// Set the current value of the property.
-    ///
-    /// value -- the value to set
-    fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str> {
-        match self.forward_value(value.clone()) {
-            Ok(_) => {
-                if value != self.last_value {
-                    self.last_value = value.clone();
-                }
-
-                Ok(())
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    /// Forward the value to the physical (or virtual) device.
-    ///
-    /// value -- value to forward
-    fn forward_value(&self, _value: serde_json::Value) -> Result<(), &'static str> {
-        if self.read_only {
-            Err("Read-only value")
-        } else {
-            Ok(())
-        }
-    }
-
     /// Get the name of this property.
     fn get_name(&self) -> String {
         self.name.clone()
@@ -145,5 +105,23 @@ impl Property for BaseProperty {
     /// Get the metadata associated with this property.
     fn get_metadata(&self) -> serde_json::Map<String, serde_json::Value> {
         self.metadata.clone()
+    }
+
+    /// Set the current value of the property.
+    ///
+    /// value -- the value to set
+    fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str> {
+        match self.value_forwarder {
+            Some(ref mut vf) => {
+                match vf.set_value(value) {
+                    Ok(v) => {
+                        self.last_value = v;
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                }
+            }
+            None => Err("Read-only value"),
+        }
     }
 }

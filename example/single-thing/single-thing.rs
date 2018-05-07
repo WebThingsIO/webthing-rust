@@ -7,8 +7,9 @@ extern crate webthing;
 use std::{thread, time};
 use std::sync::{Arc, RwLock, Weak};
 use uuid::Uuid;
-use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Property, Thing,
+use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Thing,
                WebThingServer};
+use webthing::property::ValueForwarder;
 use webthing::server::ActionGenerator;
 
 pub struct OverheatedEvent(BaseEvent);
@@ -159,6 +160,14 @@ impl ActionGenerator for Generator {
     }
 }
 
+struct EmptyValueForwarder;
+
+impl ValueForwarder for EmptyValueForwarder {
+    fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str> {
+        Ok(value)
+    }
+}
+
 fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
         "My Lamp".to_owned(),
@@ -174,7 +183,7 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     thing.add_property(Box::new(BaseProperty::new(
         "on".to_owned(),
         json!(true),
-        false,
+        Some(Box::new(EmptyValueForwarder)),
         Some(on_description),
     )));
 
@@ -188,7 +197,7 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     thing.add_property(Box::new(BaseProperty::new(
         "level".to_owned(),
         json!(50),
-        false,
+        Some(Box::new(EmptyValueForwarder)),
         Some(level_description),
     )));
 
