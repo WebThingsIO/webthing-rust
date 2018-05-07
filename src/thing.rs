@@ -1,4 +1,3 @@
-/// High-level Thing base class implementation.
 use serde_json;
 use std::collections::HashMap;
 use std::marker::{Send, Sync};
@@ -10,18 +9,23 @@ use super::action::Action;
 use super::event::Event;
 use super::property::Property;
 
+/// High-level Thing trait.
 pub trait Thing: Send + Sync {
     /// Return the thing state as a Thing Description.
     ///
-    /// Returns the state as a dictionary.
+    /// Returns the state as a JSON map.
     fn as_thing_description(&self) -> serde_json::Map<String, serde_json::Value>;
 
+    /// Get this thing's href.
     fn get_href(&self) -> String;
 
+    /// Get this thing's href prefix, i.e. /0.
     fn get_href_prefix(&self) -> String;
 
+    /// Get the websocket href.
     fn get_ws_href(&self) -> Option<String>;
 
+    /// Get the UI href.
     fn get_ui_href(&self) -> Option<String>;
 
     /// Set the prefix of any hrefs associated with this thing.
@@ -54,9 +58,9 @@ pub trait Thing: Send + Sync {
     /// Returns the description as a string.
     fn get_description(&self) -> String;
 
-    /// Get the thing's properties as a dictionary.
+    /// Get the thing's properties as a JSON map.
     ///
-    /// Returns the properties as a dictionary, i.e. name -> description.
+    /// Returns the properties as a JSON map, i.e. name -> description.
     fn get_property_descriptions(&self) -> serde_json::Map<String, serde_json::Value>;
 
     /// Get the thing's actions as an array.
@@ -83,7 +87,7 @@ pub trait Thing: Send + Sync {
     ///
     /// property_name -- the property to find
     ///
-    /// Returns a Property object, if found, else None.
+    /// Returns a boxed property trait object, if found, else None.
     fn find_property(&mut self, property_name: String) -> Option<&mut Box<Property>>;
 
     /// Get a property's value.
@@ -148,7 +152,7 @@ pub trait Thing: Send + Sync {
     /// Add an available event.
     ///
     /// name -- name of the event
-    /// metadata -- event metadata, i.e. type, description, etc., as a dict
+    /// metadata -- event metadata, i.e. type, description, etc., as a JSON map
     fn add_available_event(
         &mut self,
         name: String,
@@ -178,7 +182,7 @@ pub trait Thing: Send + Sync {
     /// Add an available action.
     ///
     /// name -- name of the action
-    /// metadata -- action metadata, i.e. type, description, etc., as a dict
+    /// metadata -- action metadata, i.e. type, description, etc., as a JSON map
     fn add_available_action(
         &mut self,
         name: String,
@@ -187,49 +191,70 @@ pub trait Thing: Send + Sync {
 
     /// Add a new websocket subscriber.
     ///
-    /// ws -- the websocket
+    /// ws_id -- ID of the websocket
     fn add_subscriber(&mut self, ws_id: String);
 
     /// Remove a websocket subscriber.
     ///
-    /// ws -- the websocket
+    /// ws_id -- ID of the websocket
     fn remove_subscriber(&mut self, ws_id: String);
 
     /// Add a new websocket subscriber to an event.
     ///
     /// name -- name of the event
-    /// ws -- the websocket
+    /// ws_id -- ID of the websocket
     fn add_event_subscriber(&mut self, name: String, ws_id: String);
 
     /// Remove a websocket subscriber from an event.
     ///
     /// name -- name of the event
-    /// ws -- the websocket
+    /// ws_id -- ID of the websocket
     fn remove_event_subscriber(&mut self, name: String, ws_id: String);
 
     /// Notify all subscribers of a property change.
     ///
-    /// property -- the property that changed
+    /// name -- name of the property that changed
+    /// value -- new property value
     fn property_notify(&mut self, name: String, value: serde_json::Value);
 
     /// Notify all subscribers of an action status change.
     ///
-    /// action -- the action whose status changed
+    /// action -- JSON description the action whose status changed
     fn action_notify(&mut self, action: serde_json::Map<String, serde_json::Value>);
 
     /// Notify all subscribers of an event.
     ///
-    /// event -- the event that occurred
+    /// name -- name of the event that occurred
+    /// event -- JSON description of the event
     fn event_notify(&mut self, name: String, event: serde_json::Map<String, serde_json::Value>);
 
+    /// Start the specified action.
+    ///
+    /// name -- name of the action
+    /// id -- ID of the action
     fn start_action(&mut self, name: String, id: String);
+
+    /// Cancel the specified action.
+    ///
+    /// name -- name of the action
+    /// id -- ID of the action
     fn cancel_action(&mut self, name: String, id: String);
+
+    /// Finish the specified action.
+    ///
+    /// name -- name of the action
+    /// id -- ID of the action
     fn finish_action(&mut self, name: String, id: String);
 
-    fn drain_queue(&mut self, id: String) -> Vec<Drain<String>>;
+    /// Drain any message queues for the specified weboscket ID.
+    ///
+    /// ws_id -- ID of the websocket
+    fn drain_queue(&mut self, ws_id: String) -> Vec<Drain<String>>;
 }
 
-/// A Web Thing.
+/// Basic web thing implementation.
+///
+/// This can easily be used by other things to handle most of the boring work.
 pub struct BaseThing {
     type_: String,
     name: String,
@@ -246,7 +271,7 @@ pub struct BaseThing {
 }
 
 impl BaseThing {
-    /// Initialize the object.
+    /// Create a new BaseThing.
     ///
     /// name -- the thing's name
     /// type -- the thing's type
@@ -282,7 +307,7 @@ impl BaseThing {
 impl Thing for BaseThing {
     /// Return the thing state as a Thing Description.
     ///
-    /// Returns the state as a dictionary.
+    /// Returns the state as a JSON map.
     fn as_thing_description(&self) -> serde_json::Map<String, serde_json::Value> {
         let mut description = serde_json::Map::new();
 
@@ -360,6 +385,7 @@ impl Thing for BaseThing {
         description
     }
 
+    /// Get this thing's href.
     fn get_href(&self) -> String {
         if self.href_prefix == "" {
             "/".to_owned()
@@ -368,14 +394,17 @@ impl Thing for BaseThing {
         }
     }
 
+    /// Get this thing's href prefix, i.e. /0.
     fn get_href_prefix(&self) -> String {
         self.href_prefix.clone()
     }
 
+    /// Get the websocket href.
     fn get_ws_href(&self) -> Option<String> {
         self.ws_href.clone()
     }
 
+    /// Get the UI href.
     fn get_ui_href(&self) -> Option<String> {
         self.ui_href.clone()
     }
@@ -440,9 +469,9 @@ impl Thing for BaseThing {
         self.description.clone()
     }
 
-    /// Get the thing's properties as a dictionary.
+    /// Get the thing's properties as a JSON map.
     ///
-    /// Returns the properties as a dictionary, i.e. name -> description.
+    /// Returns the properties as a JSON map, i.e. name -> description.
     fn get_property_descriptions(&self) -> serde_json::Map<String, serde_json::Value> {
         let mut descriptions: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
 
@@ -500,7 +529,7 @@ impl Thing for BaseThing {
     ///
     /// property_name -- the property to find
     ///
-    /// Returns a Property object, if found, else None.
+    /// Returns a boxed property trait object, if found, else None.
     fn find_property(&mut self, property_name: String) -> Option<&mut Box<Property>> {
         self.properties.get_mut(&property_name)
     }
@@ -563,7 +592,7 @@ impl Thing for BaseThing {
     /// Add an available event.
     ///
     /// name -- name of the event
-    /// metadata -- event metadata, i.e. type, description, etc., as a dict
+    /// metadata -- event metadata, i.e. type, description, etc., as a JSON map
     fn add_available_event(
         &mut self,
         name: String,
@@ -633,7 +662,7 @@ impl Thing for BaseThing {
     /// Add an available action.
     ///
     /// name -- name of the action
-    /// metadata -- action metadata, i.e. type, description, etc., as a dict
+    /// metadata -- action metadata, i.e. type, description, etc., as a JSON map
     fn add_available_action(
         &mut self,
         name: String,
@@ -648,14 +677,14 @@ impl Thing for BaseThing {
 
     /// Add a new websocket subscriber.
     ///
-    /// ws -- the websocket
+    /// ws_id -- ID of the websocket
     fn add_subscriber(&mut self, ws_id: String) {
         self.subscribers.insert(ws_id, Vec::new());
     }
 
     /// Remove a websocket subscriber.
     ///
-    /// ws -- the websocket
+    /// ws_id -- ID of the websocket
     fn remove_subscriber(&mut self, ws_id: String) {
         self.subscribers.remove(&ws_id);
 
@@ -667,7 +696,7 @@ impl Thing for BaseThing {
     /// Add a new websocket subscriber to an event.
     ///
     /// name -- name of the event
-    /// ws -- the websocket
+    /// ws_id -- ID of the websocket
     fn add_event_subscriber(&mut self, name: String, ws_id: String) {
         if self.available_events.contains_key(&name) {
             self.available_events
@@ -680,7 +709,7 @@ impl Thing for BaseThing {
     /// Remove a websocket subscriber from an event.
     ///
     /// name -- name of the event
-    /// ws -- the websocket
+    /// ws_id -- ID of the websocket
     fn remove_event_subscriber(&mut self, name: String, ws_id: String) {
         if self.available_events.contains_key(&name) {
             self.available_events
@@ -692,7 +721,8 @@ impl Thing for BaseThing {
 
     /// Notify all subscribers of a property change.
     ///
-    /// property -- the property that changed
+    /// name -- name of the property that changed
+    /// value -- new property value
     fn property_notify(&mut self, name: String, value: serde_json::Value) {
         let message = json!({
             "messageType": "propertyStatus",
@@ -708,7 +738,7 @@ impl Thing for BaseThing {
 
     /// Notify all subscribers of an action status change.
     ///
-    /// action -- the action whose status changed
+    /// action -- JSON description the action whose status changed
     fn action_notify(&mut self, action: serde_json::Map<String, serde_json::Value>) {
         let message = json!({
             "messageType": "actionStatus",
@@ -722,7 +752,8 @@ impl Thing for BaseThing {
 
     /// Notify all subscribers of an event.
     ///
-    /// event -- the event that occurred
+    /// name -- name of the event that occurred
+    /// event -- JSON description of the event
     fn event_notify(&mut self, name: String, event: serde_json::Map<String, serde_json::Value>) {
         if !self.available_events.contains_key(&name) {
             return;
@@ -741,6 +772,10 @@ impl Thing for BaseThing {
             .for_each(|queue| queue.push(message.clone()));
     }
 
+    /// Start the specified action.
+    ///
+    /// name -- name of the action
+    /// id -- ID of the action
     fn start_action(&mut self, name: String, id: String) {
         match self.get_action(name, id) {
             Some(action) => {
@@ -753,6 +788,10 @@ impl Thing for BaseThing {
         }
     }
 
+    /// Cancel the specified action.
+    ///
+    /// name -- name of the action
+    /// id -- ID of the action
     fn cancel_action(&mut self, name: String, id: String) {
         match self.get_action(name, id) {
             Some(action) => {
@@ -763,6 +802,10 @@ impl Thing for BaseThing {
         }
     }
 
+    /// Finish the specified action.
+    ///
+    /// name -- name of the action
+    /// id -- ID of the action
     fn finish_action(&mut self, name: String, id: String) {
         match self.get_action(name, id) {
             Some(action) => {
@@ -774,9 +817,12 @@ impl Thing for BaseThing {
         }
     }
 
-    fn drain_queue(&mut self, id: String) -> Vec<Drain<String>> {
+    /// Drain any message queues for the specified weboscket ID.
+    ///
+    /// ws_id -- ID of the websocket
+    fn drain_queue(&mut self, ws_id: String) -> Vec<Drain<String>> {
         let mut drains: Vec<Drain<String>> = Vec::new();
-        match self.subscribers.get_mut(&id) {
+        match self.subscribers.get_mut(&ws_id) {
             Some(v) => {
                 drains.push(v.drain(..));
             }
@@ -784,7 +830,7 @@ impl Thing for BaseThing {
         }
 
         self.available_events.values_mut().for_each(|evt| {
-            match evt.get_subscribers().get_mut(&id) {
+            match evt.get_subscribers().get_mut(&ws_id) {
                 Some(v) => {
                     drains.push(v.drain(..));
                 }
@@ -796,16 +842,23 @@ impl Thing for BaseThing {
     }
 }
 
-pub struct AvailableAction {
+/// Struct to describe an action available to be taken.
+struct AvailableAction {
     metadata: serde_json::Map<String, serde_json::Value>,
 }
 
 impl AvailableAction {
-    pub fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableAction {
+    /// Create a new AvailableAction.
+    ///
+    /// metadata -- action metadata
+    fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableAction {
         AvailableAction { metadata: metadata }
     }
 
-    pub fn set_href_prefix(&mut self, prefix: String) {
+    /// Set the prefix of this action's href.
+    ///
+    /// prefix -- the prefix
+    fn set_href_prefix(&mut self, prefix: String) {
         let href = format!(
             "{}{}",
             prefix,
@@ -814,11 +867,17 @@ impl AvailableAction {
         self.metadata.insert("href".to_owned(), json!(href));
     }
 
-    pub fn get_metadata(&self) -> &serde_json::Map<String, serde_json::Value> {
+    /// Get the action metadata.
+    fn get_metadata(&self) -> &serde_json::Map<String, serde_json::Value> {
         &self.metadata
     }
 
-    pub fn validate_action_input(&self, input: Option<&serde_json::Value>) -> bool {
+    /// Validate the input for a new action.
+    ///
+    /// input -- the input to validate
+    ///
+    /// Returns a boolean indicating validation success.
+    fn validate_action_input(&self, input: Option<&serde_json::Value>) -> bool {
         let mut scope = json_schema::Scope::new();
         let validator = if self.metadata.contains_key("input") {
             let schema = self.metadata.get("input").unwrap();
@@ -840,20 +899,27 @@ impl AvailableAction {
     }
 }
 
-pub struct AvailableEvent {
+/// Struct to describe an event available for subscription.
+struct AvailableEvent {
     metadata: serde_json::Map<String, serde_json::Value>,
     subscribers: HashMap<String, Vec<String>>,
 }
 
 impl AvailableEvent {
-    pub fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableEvent {
+    /// Create a new AvailableEvent.
+    ///
+    /// metadata -- event metadata
+    fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableEvent {
         AvailableEvent {
             metadata: metadata,
             subscribers: HashMap::new(),
         }
     }
 
-    pub fn set_href_prefix(&mut self, prefix: String) {
+    /// Set the prefix of this event's href.
+    ///
+    /// prefix -- the prefix
+    fn set_href_prefix(&mut self, prefix: String) {
         let href = format!(
             "{}{}",
             prefix,
@@ -862,19 +928,27 @@ impl AvailableEvent {
         self.metadata.insert("href".to_owned(), json!(href));
     }
 
-    pub fn get_metadata(&self) -> &serde_json::Map<String, serde_json::Value> {
+    /// Get the event metadata.
+    fn get_metadata(&self) -> &serde_json::Map<String, serde_json::Value> {
         &self.metadata
     }
 
-    pub fn add_subscriber(&mut self, ws_id: String) {
+    /// Add a websocket subscriber to the event.
+    ///
+    /// ws_id -- ID of the websocket
+    fn add_subscriber(&mut self, ws_id: String) {
         self.subscribers.insert(ws_id, Vec::new());
     }
 
-    pub fn remove_subscriber(&mut self, ws_id: String) {
+    /// Remove a websocket subscriber from the event.
+    ///
+    /// ws_id -- ID of the websocket
+    fn remove_subscriber(&mut self, ws_id: String) {
         self.subscribers.remove(&ws_id);
     }
 
-    pub fn get_subscribers(&mut self) -> &mut HashMap<String, Vec<String>> {
+    /// Get the set of subscribers for the event.
+    fn get_subscribers(&mut self) -> &mut HashMap<String, Vec<String>> {
         &mut self.subscribers
     }
 }

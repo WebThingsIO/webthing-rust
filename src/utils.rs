@@ -1,4 +1,3 @@
-/// Utility functions.
 use chrono::Utc;
 use std::net::UdpSocket;
 

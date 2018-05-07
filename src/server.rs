@@ -15,7 +15,13 @@ use super::action::Action;
 use super::thing::Thing;
 use super::utils::get_ip;
 
+/// Generator for new actions, based on name.
 pub trait ActionGenerator: Send + Sync {
+    /// Generate a new action, if possible.
+    ///
+    /// thing -- thing associated with this action
+    /// name -- name of the requested action
+    /// input -- input for the action
     fn generate(
         &self,
         thing: Weak<RwLock<Box<Thing>>>,
@@ -24,6 +30,7 @@ pub trait ActionGenerator: Send + Sync {
     ) -> Option<Box<Action>>;
 }
 
+/// Shared app state, used by server threads.
 pub struct AppState {
     things: Arc<Vec<Arc<RwLock<Box<Thing>>>>>,
     action_generator: Arc<Box<ActionGenerator>>,
@@ -67,7 +74,8 @@ impl AppState {
     }
 }
 
-pub struct ThingWebSocket {
+/// Shared state used by individual websockets.
+struct ThingWebSocket {
     id: String,
     thing_id: usize,
     things: Arc<Vec<Arc<RwLock<Box<Thing>>>>>,
@@ -75,14 +83,17 @@ pub struct ThingWebSocket {
 }
 
 impl ThingWebSocket {
+    /// Get the ID of this websocket.
     fn get_id(&self) -> String {
         self.id.clone()
     }
 
+    /// Get the thing associated with this websocket.
     fn get_thing(&self) -> Arc<RwLock<Box<Thing>>> {
         self.things[self.thing_id].clone()
     }
 
+    /// Drain all message queues associated with this websocket.
     fn drain_queue(&self, ctx: &mut ws::WebsocketContext<Self, AppState>) {
         ctx.run_later(Duration::from_millis(200), |act, ctx| {
             let thing = act.get_thing();
@@ -599,13 +610,14 @@ pub struct WebThingServer {
 }
 
 impl WebThingServer {
-    /// Initialize the WebThingServer.
+    /// Create a new WebThingServer.
     ///
     /// things -- list of Things managed by this server
     /// name -- name of this device -- this is only needed if the server is
     ///         managing multiple things
     /// port -- port to listen on (defaults to 80)
-    /// ssl_options -- dict of SSL options to pass to the tornado server
+    /// ssl_options -- tuple of SSL options to pass to the actix web server
+    /// action_generator -- action generator struct
     pub fn new(
         mut things: Vec<Arc<RwLock<Box<Thing>>>>,
         name: Option<String>,

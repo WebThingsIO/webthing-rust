@@ -1,11 +1,13 @@
-/// High-level Property base class implementation.
 use serde_json;
 use std::marker::{Send, Sync};
 
+/// Used to forward a new property value to the physical/virtual device.
 pub trait ValueForwarder: Send + Sync {
+    /// Set the new value of the property.
     fn set_value(&mut self, serde_json::Value) -> Result<serde_json::Value, &'static str>;
 }
 
+/// High-level Property trait.
 pub trait Property: Send + Sync {
     /// Get the property description.
     ///
@@ -27,19 +29,23 @@ pub trait Property: Send + Sync {
     /// Get the current property value.
     fn get_value(&self) -> serde_json::Value;
 
+    /// Set the current value of the property.
+    ///
+    /// value -- the value to set
+    fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str>;
+
     /// Get the name of this property.
     fn get_name(&self) -> String;
 
     /// Get the metadata associated with this property.
     fn get_metadata(&self) -> serde_json::Map<String, serde_json::Value>;
-
-    /// Set the current value of the property.
-    ///
-    /// value -- the value to set
-    fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str>;
 }
 
+/// Basic property implementation.
+///
 /// A Property represents an individual state value of a thing.
+///
+/// This can easily be used by other properties to handle most of the boring work.
 pub struct BaseProperty {
     name: String,
     last_value: serde_json::Value,
@@ -50,11 +56,12 @@ pub struct BaseProperty {
 }
 
 impl BaseProperty {
-    /// Initialize the object.
+    /// Create a new BaseProperty.
     ///
     /// name -- name of the property
-    /// value -- Value object to hold the property value
-    /// metadata -- property metadata, i.e. type, description, unit, etc., as a Map
+    /// initial_value -- initial property value
+    /// value_forwarder -- optional value forwarder; property will be read-only if None
+    /// metadata -- property metadata, i.e. type, description, unit, etc., as a JSON map
     pub fn new(
         name: String,
         initial_value: serde_json::Value,
@@ -97,16 +104,6 @@ impl Property for BaseProperty {
         self.last_value.clone()
     }
 
-    /// Get the name of this property.
-    fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    /// Get the metadata associated with this property.
-    fn get_metadata(&self) -> serde_json::Map<String, serde_json::Value> {
-        self.metadata.clone()
-    }
-
     /// Set the current value of the property.
     ///
     /// value -- the value to set
@@ -121,5 +118,15 @@ impl Property for BaseProperty {
             },
             None => Err("Read-only value"),
         }
+    }
+
+    /// Get the name of this property.
+    fn get_name(&self) -> String {
+        self.name.clone()
+    }
+
+    /// Get the metadata associated with this property.
+    fn get_metadata(&self) -> serde_json::Map<String, serde_json::Value> {
+        self.metadata.clone()
     }
 }

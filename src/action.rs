@@ -1,4 +1,3 @@
-/// High-level Action base class implementation.
 use serde_json;
 use std::marker::{Send, Sync};
 use std::sync::{Arc, RwLock, Weak};
@@ -6,10 +5,11 @@ use std::sync::{Arc, RwLock, Weak};
 use super::thing::Thing;
 use super::utils::timestamp;
 
+/// High-level Action trait.
 pub trait Action: Send + Sync {
     /// Get the action description.
     ///
-    /// Returns a dictionary describing the action.
+    /// Returns a JSON map describing the action.
     fn as_action_description(&self) -> serde_json::Map<String, serde_json::Value> {
         let mut description = serde_json::Map::new();
         let mut inner = serde_json::Map::new();
@@ -48,6 +48,9 @@ pub trait Action: Send + Sync {
     /// Get this action's status.
     fn get_status(&self) -> String;
 
+    /// Get the thing associated with this action.
+    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>>;
+
     /// Get the time the action was requested.
     fn get_time_requested(&self) -> String;
 
@@ -57,8 +60,9 @@ pub trait Action: Send + Sync {
     /// Get the inputs for this action.
     fn get_input(&self) -> Option<serde_json::Map<String, serde_json::Value>>;
 
-    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>>;
-
+    /// Set the status of this action.
+    ///
+    /// status -- new status
     fn set_status(&mut self, status: String);
 
     /// Start performing the action.
@@ -74,6 +78,11 @@ pub trait Action: Send + Sync {
     fn finish(&mut self);
 }
 
+/// Basic action implementation.
+///
+/// An Action represents an individual action which can be performed on a thing.
+///
+/// This can easily be used by other actions to handle most of the boring work.
 pub struct BaseAction {
     id: String,
     name: String,
@@ -87,7 +96,7 @@ pub struct BaseAction {
 }
 
 impl BaseAction {
-    /// Initialize the object.
+    /// Create a new BaseAction.
     ///
     /// id -- ID of this action
     /// name -- name of the action
@@ -143,6 +152,11 @@ impl Action for BaseAction {
         self.status.clone()
     }
 
+    /// Get the thing associated with this action.
+    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>> {
+        self.thing.upgrade()
+    }
+
     /// Get the time the action was requested.
     fn get_time_requested(&self) -> String {
         self.time_requested.clone()
@@ -158,10 +172,9 @@ impl Action for BaseAction {
         self.input.clone()
     }
 
-    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>> {
-        self.thing.upgrade()
-    }
-
+    /// Set the status of this action.
+    ///
+    /// status -- new status
     fn set_status(&mut self, status: String) {
         self.status = status;
     }
