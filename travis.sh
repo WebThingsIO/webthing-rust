@@ -6,9 +6,10 @@ wget https://www.openssl.org/source/openssl-1.1.0h.tar.gz
 tar xzf openssl-1.1.0h.tar.gz
 cd openssl-1.1.0h
 ./config --prefix=/usr/local
-make
-sudo make install
+make >/dev/null
+sudo make install >/dev/null
 sudo ldconfig
+cd ..
 
 # build library
 cargo build
@@ -22,6 +23,7 @@ cd example/single-thing
 cargo build
 cargo run &
 EXAMPLE_PID=$!
+sleep 5
 cd ../../
 ./webthing-tester/test-client.py
 kill -15 $EXAMPLE_PID
@@ -31,6 +33,7 @@ cd example/multiple-things
 cargo build
 cargo run &
 EXAMPLE_PID=$!
+sleep 5
 cd ../../
 ./webthing-tester/test-client.py --path-prefix "/0"
 kill -15 $EXAMPLE_PID
