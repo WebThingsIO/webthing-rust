@@ -1,8 +1,10 @@
 language: rust
-addons:
-    apt:
-        packages:
-            - libssl-dev
+sudo: required
+env:
+    global:
+        - LIBRARY_PATH=/usr/local/lib
+        - LD_LIBRARY_PATH=/usr/local/lib
+        - LD_RUN_PATH=/usr/local/lib
 rust:
     - stable
     - beta
