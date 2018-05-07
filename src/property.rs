@@ -112,15 +112,13 @@ impl Property for BaseProperty {
     /// value -- the value to set
     fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str> {
         match self.value_forwarder {
-            Some(ref mut vf) => {
-                match vf.set_value(value) {
-                    Ok(v) => {
-                        self.last_value = v;
-                        Ok(())
-                    }
-                    Err(e) => Err(e),
+            Some(ref mut vf) => match vf.set_value(value) {
+                Ok(v) => {
+                    self.last_value = v;
+                    Ok(())
                 }
-            }
+                Err(e) => Err(e),
+            },
             None => Err("Read-only value"),
         }
     }

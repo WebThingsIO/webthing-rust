@@ -14,11 +14,13 @@ use webthing::server::ActionGenerator;
 
 pub struct OverheatedEvent(BaseEvent);
 
-impl Event for OverheatedEvent {
-    fn new(_name: String, data: Option<serde_json::Value>) -> OverheatedEvent {
+impl OverheatedEvent {
+    fn new(data: Option<serde_json::Value>) -> OverheatedEvent {
         OverheatedEvent(BaseEvent::new("overheated".to_owned(), data))
     }
+}
 
+impl Event for OverheatedEvent {
     fn get_name(&self) -> String {
         self.0.get_name()
     }
@@ -34,10 +36,8 @@ impl Event for OverheatedEvent {
 
 pub struct FadeAction(BaseAction);
 
-impl Action for FadeAction {
+impl FadeAction {
     fn new(
-        _id: String,
-        _name: String,
         input: Option<serde_json::Map<String, serde_json::Value>>,
         thing: Weak<RwLock<Box<Thing>>>,
     ) -> FadeAction {
@@ -48,7 +48,9 @@ impl Action for FadeAction {
             thing,
         ))
     }
+}
 
+impl Action for FadeAction {
     fn set_href_prefix(&mut self, prefix: String) {
         self.0.set_href_prefix(prefix)
     }
@@ -112,10 +114,7 @@ impl Action for FadeAction {
             let thing = thing.clone();
             let mut thing = thing.write().unwrap();
             let _ = thing.set_property("level".to_owned(), input.get("level").unwrap().clone());
-            thing.add_event(Box::new(OverheatedEvent::new(
-                "".to_owned(),
-                Some(json!(102)),
-            )));
+            thing.add_event(Box::new(OverheatedEvent::new(Some(json!(102)))));
 
             thing.finish_action(name, id);
         });
@@ -149,12 +148,7 @@ impl ActionGenerator for Generator {
 
         let name: &str = &name;
         match name {
-            "fade" => Some(Box::new(FadeAction::new(
-                "".to_owned(),
-                "".to_owned(),
-                input,
-                thing,
-            ))),
+            "fade" => Some(Box::new(FadeAction::new(input, thing))),
             _ => None,
         }
     }

@@ -11,15 +11,6 @@ use super::event::Event;
 use super::property::Property;
 
 pub trait Thing: Send + Sync {
-    /// Initialize the object.
-    ///
-    /// name -- the thing's name
-    /// type -- the thing's type
-    /// description -- description of the thing
-    fn new(name: String, type_: Option<String>, description: Option<String>) -> Self
-    where
-        Self: Sized;
-
     /// Return the thing state as a Thing Description.
     ///
     /// Returns the state as a dictionary.
@@ -254,13 +245,13 @@ pub struct BaseThing {
     ui_href: Option<String>,
 }
 
-impl Thing for BaseThing {
+impl BaseThing {
     /// Initialize the object.
     ///
     /// name -- the thing's name
     /// type -- the thing's type
     /// description -- description of the thing
-    fn new(name: String, type_: Option<String>, description: Option<String>) -> BaseThing {
+    pub fn new(name: String, type_: Option<String>, description: Option<String>) -> BaseThing {
         let _type = match type_ {
             Some(t) => t,
             None => "thing".to_owned(),
@@ -286,7 +277,9 @@ impl Thing for BaseThing {
             ui_href: None,
         }
     }
+}
 
+impl Thing for BaseThing {
     /// Return the thing state as a Thing Description.
     ///
     /// Returns the state as a dictionary.

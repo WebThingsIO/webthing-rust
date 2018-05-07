@@ -7,20 +7,6 @@ use super::thing::Thing;
 use super::utils::timestamp;
 
 pub trait Action: Send + Sync {
-    /// Initialize the object.
-    ///
-    /// id -- ID of this action
-    /// name -- name of the action
-    /// input -- any action inputs
-    fn new(
-        id: String,
-        name: String,
-        input: Option<serde_json::Map<String, serde_json::Value>>,
-        thing: Weak<RwLock<Box<Thing>>>,
-    ) -> Self
-    where
-        Self: Sized;
-
     /// Get the action description.
     ///
     /// Returns a dictionary describing the action.
@@ -100,14 +86,13 @@ pub struct BaseAction {
     thing: Weak<RwLock<Box<Thing>>>,
 }
 
-/// An Action represents an individual action on a thing.
-impl Action for BaseAction {
+impl BaseAction {
     /// Initialize the object.
     ///
     /// id -- ID of this action
     /// name -- name of the action
     /// input -- any action inputs
-    fn new(
+    pub fn new(
         id: String,
         name: String,
         input: Option<serde_json::Map<String, serde_json::Value>>,
@@ -127,7 +112,10 @@ impl Action for BaseAction {
             thing: thing,
         }
     }
+}
 
+/// An Action represents an individual action on a thing.
+impl Action for BaseAction {
     /// Set the prefix of any hrefs associated with this action.
     ///
     /// prefix -- the prefix

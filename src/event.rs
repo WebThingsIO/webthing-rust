@@ -1,16 +1,10 @@
 /// High-level Event base class implementation.
 use serde_json;
-use std::marker::Sized;
 use std::marker::{Send, Sync};
 
 use super::utils::timestamp;
 
 pub trait Event: Send + Sync {
-    /// Create a new event
-    fn new(name: String, data: Option<serde_json::Value>) -> Self
-    where
-        Self: Sized;
-
     /// Get the event description.
     ///
     /// Returns a JSON value describing the event.
@@ -45,16 +39,18 @@ pub struct BaseEvent {
     time: String,
 }
 
-impl Event for BaseEvent {
+impl BaseEvent {
     /// Create a new event
-    fn new(name: String, data: Option<serde_json::Value>) -> BaseEvent {
+    pub fn new(name: String, data: Option<serde_json::Value>) -> BaseEvent {
         BaseEvent {
             name: name,
             data: data,
             time: timestamp(),
         }
     }
+}
 
+impl Event for BaseEvent {
     /// Get the event's name.
     fn get_name(&self) -> String {
         self.name.clone()
