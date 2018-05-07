@@ -11,7 +11,7 @@ If you're using `Cargo`, just add `webthing` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-webthing = "*"
+webthing = { git = "https://github.com/mozilla-iot/webthing-rust" }
 ```
 
 # Example
