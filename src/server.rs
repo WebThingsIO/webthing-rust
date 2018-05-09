@@ -2,6 +2,7 @@
 use actix;
 use actix::prelude::*;
 use actix_web::server::{HttpHandler, HttpServer};
+use actix_web::WsWriter;
 use actix_web::{middleware, pred, server, ws, App, Error, HttpRequest, HttpResponse, Json};
 use mdns;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
@@ -680,28 +681,27 @@ impl WebThingServer {
                                 .f(thing_handler_WS);
                             r.get().f(thing_handler_GET)
                         })
-                        .resource("/{thing_id}/properties", |r| {
-                            r.get().f(properties_handler_GET)
-                        })
-                        .resource("/{thing_id}/properties/{property_name}", |r| {
-                            r.get().f(property_handler_GET);
-                            r.put().with2(property_handler_PUT);
-                        })
-                        .resource("/{thing_id}/actions", |r| {
-                            r.get().f(actions_handler_GET);
-                            r.post().with2(actions_handler_POST);
-                        })
-                        .resource("/{thing_id}/actions/{action_name}", |r| {
-                            r.get().f(action_handler_GET)
-                        })
-                        .resource("/{thing_id}/actions/{action_name}/{action_id}", |r| {
-                            r.get().f(action_id_handler_GET);
-                            r.delete().f(action_id_handler_DELETE);
-                            r.put().with2(action_id_handler_PUT);
-                        })
-                        .resource("/{thing_id}/events", |r| r.get().f(events_handler_GET))
-                        .resource("/{thing_id}/events/{event_name}", |r| {
-                            r.get().f(event_handler_GET)
+                        .scope("/{thing_id}/", |scope| {
+                            scope
+                                .resource("/properties", |r| r.get().f(properties_handler_GET))
+                                .resource("/properties/{property_name}", |r| {
+                                    r.get().f(property_handler_GET);
+                                    r.put().with2(property_handler_PUT);
+                                })
+                                .resource("/actions", |r| {
+                                    r.get().f(actions_handler_GET);
+                                    r.post().with2(actions_handler_POST);
+                                })
+                                .resource("/actions/{action_name}", |r| {
+                                    r.get().f(action_handler_GET)
+                                })
+                                .resource("/actions/{action_name}/{action_id}", |r| {
+                                    r.get().f(action_id_handler_GET);
+                                    r.delete().f(action_id_handler_DELETE);
+                                    r.put().with2(action_id_handler_PUT);
+                                })
+                                .resource("/events", |r| r.get().f(events_handler_GET))
+                                .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
                         })
                         .boxed(),
                 ]
@@ -751,9 +751,7 @@ impl WebThingServer {
             port: port,
             name: name,
             ssl_options: ssl_options,
-            server: server
-                .bind(format!("0.0.0.0:{}", port))
-                .expect("Failed to bind socket"),
+            server: server,
             mdns: None,
             system: sys,
         }
@@ -783,10 +781,16 @@ impl WebThingServer {
                     .set_private_key_file(o.0.clone(), SslFiletype::PEM)
                     .unwrap();
                 builder.set_certificate_chain_file(o.1.clone()).unwrap();
-                self.server.start_ssl(builder).unwrap();
+                self.server
+                    .bind_ssl(format!("0.0.0.0:{}", self.port), builder)
+                    .expect("Failed to bind socket")
+                    .start();
             }
             None => {
-                self.server.start();
+                self.server
+                    .bind(format!("0.0.0.0:{}", self.port))
+                    .expect("Failed to bind socket")
+                    .start();
             }
         }
 

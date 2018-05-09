@@ -4,9 +4,7 @@
 
 extern crate actix;
 extern crate actix_web;
-extern crate bytes;
 extern crate chrono;
-extern crate futures;
 extern crate mdns;
 extern crate openssl;
 #[macro_use]
