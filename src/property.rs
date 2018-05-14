@@ -7,6 +7,16 @@ pub trait ValueForwarder: Send + Sync {
     fn set_value(&mut self, serde_json::Value) -> Result<serde_json::Value, &'static str>;
 }
 
+/// A basic value forwarder that does nothing, but allows the property to be writable.
+pub struct EmptyValueForwarder;
+
+impl ValueForwarder for EmptyValueForwarder {
+    /// Set the new value of the property.
+    fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str> {
+        Ok(value)
+    }
+}
+
 /// High-level Property trait.
 pub trait Property: Send + Sync {
     /// Get the property description.
