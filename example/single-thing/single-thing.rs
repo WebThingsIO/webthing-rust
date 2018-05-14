@@ -9,7 +9,7 @@ use std::sync::{Arc, RwLock, Weak};
 use uuid::Uuid;
 use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Thing,
                WebThingServer};
-use webthing::property::ValueForwarder;
+use webthing::property::EmptyValueForwarder;
 use webthing::server::ActionGenerator;
 
 pub struct OverheatedEvent(BaseEvent);
@@ -151,14 +151,6 @@ impl ActionGenerator for Generator {
             "fade" => Some(Box::new(FadeAction::new(input, thing))),
             _ => None,
         }
-    }
-}
-
-struct EmptyValueForwarder;
-
-impl ValueForwarder for EmptyValueForwarder {
-    fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str> {
-        Ok(value)
     }
 }
 
