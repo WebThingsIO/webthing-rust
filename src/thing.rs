@@ -1,4 +1,5 @@
 use serde_json;
+use std::any::Any;
 use std::collections::HashMap;
 use std::marker::{Send, Sync};
 use std::sync::{Arc, RwLock};
@@ -15,6 +16,12 @@ pub trait Thing: Send + Sync {
     ///
     /// Returns the state as a JSON map.
     fn as_thing_description(&self) -> serde_json::Map<String, serde_json::Value>;
+
+    /// Return this thing as an Any.
+    fn as_any(&self) -> &Any;
+
+    /// Return this thing as a mutable Any.
+    fn as_mut_any(&mut self) -> &mut Any;
 
     /// Get this thing's href.
     fn get_href(&self) -> String;
@@ -383,6 +390,16 @@ impl Thing for BaseThing {
         }
 
         description
+    }
+
+    /// Return this thing as an Any.
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    /// Return this thing as a mutable Any.
+    fn as_mut_any(&mut self) -> &mut Any {
+        self
     }
 
     /// Get this thing's href.
