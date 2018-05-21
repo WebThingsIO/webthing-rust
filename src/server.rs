@@ -465,7 +465,7 @@ fn actions_handler_POST(
 
             {
                 let mut thing = thing.write().unwrap();
-                let result = thing.add_action(action.clone(), Some(action_params));
+                let result = thing.add_action(action.clone(), input);
 
                 if result.is_err() {
                     continue;
