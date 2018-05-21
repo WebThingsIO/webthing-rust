@@ -39,10 +39,15 @@ pub trait Property: Send + Sync {
     /// Get the current property value.
     fn get_value(&self) -> serde_json::Value;
 
-    /// Set the current value of the property.
+    /// Set the current value of the property with the value forwarder.
     ///
     /// value -- the value to set
     fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str>;
+
+    /// Set the cached value of the property.
+    ///
+    /// value -- the value to set
+    fn set_cached_value(&mut self, value: serde_json::Value) -> Result<(), &'static str>;
 
     /// Get the name of this property.
     fn get_name(&self) -> String;
@@ -128,6 +133,14 @@ impl Property for BaseProperty {
             },
             None => Err("Read-only value"),
         }
+    }
+
+    /// Set the cached value of the property.
+    ///
+    /// value -- the value to set
+    fn set_cached_value(&mut self, value: serde_json::Value) -> Result<(), &'static str> {
+        self.last_value = value;
+        Ok(())
     }
 
     /// Get the name of this property.
