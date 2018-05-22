@@ -4,12 +4,13 @@ extern crate serde_json;
 extern crate uuid;
 extern crate webthing;
 
-use std::{thread, time};
 use std::sync::{Arc, RwLock, Weak};
+use std::{thread, time};
 use uuid::Uuid;
-use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Thing,
-               WebThingServer};
 use webthing::property::EmptyValueForwarder;
+use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Thing, ThingsType,
+               WebThingServer};
+
 use webthing::server::ActionGenerator;
 
 pub struct OverheatedEvent(BaseEvent);
@@ -224,13 +225,15 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
 
 fn main() {
     env_logger::init();
+    let thing = make_thing();
 
-    let mut things: Vec<Arc<RwLock<Box<Thing + 'static>>>> = Vec::new();
-    things.push(make_thing());
-
-    // If adding more than one thing here, be sure to set the `name`
-    // parameter to some string, which will be broadcast via mDNS.
+    // If adding more than one thing, use ThingsType::Multiple() with a name.
     // In the single thing case, the thing's name will be broadcast.
-    let server = WebThingServer::new(things, None, Some(8888), None, Box::new(Generator));
+    let server = WebThingServer::new(
+        ThingsType::Single(thing),
+        Some(8888),
+        None,
+        Box::new(Generator),
+    );
     server.start();
 }
