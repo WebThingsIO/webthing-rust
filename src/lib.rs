@@ -33,5 +33,5 @@ pub mod utils;
 pub use action::{Action, BaseAction};
 pub use event::{BaseEvent, Event};
 pub use property::{BaseProperty, Property};
-pub use server::WebThingServer;
+pub use server::{ThingsType, WebThingServer};
 pub use thing::{BaseThing, Thing};
