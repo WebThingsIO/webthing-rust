@@ -782,10 +782,10 @@ impl WebThingServer {
 
         let responder = mdns::Responder::new().unwrap();
         let svc = responder.register(
-            "_webthing._sub._http._tcp".to_owned(),
+            "_http._tcp".to_owned(),
             self.name.clone(),
             self.port,
-            &[&format!("url={}://{}:{}", protocol, self.ip, self.port)],
+            &[&format!("url={}://{}:{}", protocol, self.ip, self.port), "webthing=true"],
         );
         self.mdns = Some(svc);
 

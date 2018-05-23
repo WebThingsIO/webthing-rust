@@ -17,3 +17,7 @@ openssl = "0.10"
 serde_json = "1.0"
 uuid = { version = "0.6", features = ["v4"] }
 valico = "2.1"
+
+[dev-dependencies]
+env_logger = "0.5"
+rand = "0.4"
