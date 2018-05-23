@@ -19,6 +19,7 @@ git clone https://github.com/mozilla-iot/webthing-tester
 pip3 install --user -r webthing-tester/requirements.txt
 
 # build and test the single-thing example
+cargo build --example single-thing
 cargo run --example single-thing &
 EXAMPLE_PID=$!
 sleep 5
@@ -26,6 +27,7 @@ sleep 5
 kill -15 $EXAMPLE_PID
 
 # build and test the multiple-things example
+cargo build --example multiple-things
 cargo run --example multiple-things &
 EXAMPLE_PID=$!
 sleep 5
