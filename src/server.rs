@@ -685,15 +685,15 @@ impl WebThingServer {
                             action_generator: inner_generator_arc.clone(),
                         }).middleware(middleware::Logger::default())
                             .resource("/", |r| r.get().f(things_handler_GET))
-                            .resource("/{thing_id}", |r| {
-                                r.route()
-                                    .filter(pred::Get())
-                                    .filter(pred::Header("upgrade", "websocket"))
-                                    .f(thing_handler_WS);
-                                r.get().f(thing_handler_GET)
-                            })
-                            .scope("/{thing_id}/", |scope| {
+                            .scope("/{thing_id}", |scope| {
                                 scope
+                                    .resource("", |r| {
+                                        r.route()
+                                            .filter(pred::Get())
+                                            .filter(pred::Header("upgrade", "websocket"))
+                                            .f(thing_handler_WS);
+                                        r.get().f(thing_handler_GET)
+                                    })
                                     .resource("/properties", |r| r.get().f(properties_handler_GET))
                                     .resource("/properties/{property_name}", |r| {
                                         r.get().f(property_handler_GET);
@@ -785,7 +785,10 @@ impl WebThingServer {
             "_http._tcp".to_owned(),
             self.name.clone(),
             self.port,
-            &[&format!("url={}://{}:{}", protocol, self.ip, self.port), "webthing=true"],
+            &[
+                &format!("url={}://{}:{}", protocol, self.ip, self.port),
+                "webthing=true",
+            ],
         );
         self.mdns = Some(svc);
 
