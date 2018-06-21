@@ -5,7 +5,7 @@
 extern crate actix;
 extern crate actix_web;
 extern crate chrono;
-extern crate mdns;
+extern crate libmdns;
 extern crate openssl;
 #[macro_use]
 extern crate serde_json;

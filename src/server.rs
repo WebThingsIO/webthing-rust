@@ -3,7 +3,7 @@ use actix;
 use actix::prelude::*;
 use actix_web::server::{HttpHandler, HttpServer};
 use actix_web::{middleware, pred, server, ws, App, Error, HttpRequest, HttpResponse, Json};
-use mdns;
+use libmdns;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
 use std::marker::{Send, Sync};
@@ -620,7 +620,7 @@ pub struct WebThingServer {
     name: String,
     ssl_options: Option<(String, String)>,
     server: HttpServer<Box<HttpHandler>>,
-    mdns: Option<mdns::Service>,
+    mdns: Option<libmdns::Service>,
     system: actix::SystemRunner,
 }
 
@@ -780,7 +780,7 @@ impl WebThingServer {
             "https"
         };
 
-        let responder = mdns::Responder::new().unwrap();
+        let responder = libmdns::Responder::new().unwrap();
         let svc = responder.register(
             "_http._tcp".to_owned(),
             self.name.clone(),
