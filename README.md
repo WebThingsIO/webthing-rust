@@ -20,10 +20,10 @@ In this example we will set up a dimmable light and a humidity sensor (both usin
 
 ## Dimmable Light
 
-Imagine you have a dimmable Light that you want to expose via the web of things API. The Light can be turned on/off and the brightness can be set from 0% to 100%. Besides the name, description, and type, a `dimmableLight` is required to expose two properties:
+Imagine you have a dimmable light that you want to expose via the web of things API. The light can be turned on/off and the brightness can be set from 0% to 100%. Besides the name, description, and type, a `Light` is required to expose two properties:
 * `on`: the state of the light, whether it is turned on or off
     * Setting this property via a `PUT {"on": true/false}` call to the REST API toggles the light.
-* `level`: the brightness level of the light from 0-100%
+* `brightness`: the brightness level of the light from 0-100%
     * Setting this property via a PUT call to the REST API sets the brightness level of this light.
 
 First we create a new Thing:
@@ -31,7 +31,7 @@ First we create a new Thing:
 ```rust
 let mut light = BaseThing::new(
     "My Lamp".to_owned(),
-    Some("dimmableLight".to_owned()),
+    Some(vec!["OnOffSwitch".to_owned(), "Light".to_owned()]),
     Some("A web connected lamp".to_owned()),
 );
 ```
@@ -51,6 +51,8 @@ impl ValueForwarder for OnValueForwarder {
 }
 
 let on_description = json!({
+    "@type": "OnProperty",
+    "label": "On/Off",
     "type": "boolean",
     "description": "Whether the lamp is turned on"
 });
@@ -63,30 +65,33 @@ thing.add_property(Box::new(BaseProperty::new(
 )));
 ```
 
-The **`level`** property reports the brightness level of the light and sets the level. Like before, instead of actually setting the level of a light, we just log the level to std::out.
+The **`brightness`** property reports the brightness level of the light and sets the level. Like before, instead of actually setting the level of a light, we just log the level.
 
 ```rust
-struct LevelValueForwarder;
+struct BrightnessValueForwarder;
 
-impl ValueForwarder for LevelValueForwarder {
+impl ValueForwarder for BrightnessValueForwarder {
     fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str> {
-        println!("New light level is {}", value);
+        println!("Brightness is now {}", value);
         Ok(value)
     }
 }
 
-let level_description = json!({
+let brightness_description = json!({
+    "@type": "BrightnessProperty",
+    "label": "Brightness",
     "type": "number",
     "description": "The level of light from 0-100",
     "minimum": 0,
-    "maximum": 100
+    "maximum": 100,
+    "unit": "percent"
 });
-let level_description = level_description.as_object().unwrap().clone();
+let brightness_description = brightness_description.as_object().unwrap().clone();
 thing.add_property(Box::new(BaseProperty::new(
-    "level".to_owned(),
+    "brightness".to_owned(),
     json!(50),
-    Some(Box::new(LevelValueForwarder)),
-    Some(level_description),
+    Some(Box::new(BrightnessValueForwarder)),
+    Some(brightness_description),
 )));
 ```
 
@@ -113,43 +118,31 @@ This will start the server, making the light available via the WoT REST API and 
 
 Let's now also connect a humidity sensor to the server we set up for our light.
 
-A `multiLevelSensor` (a sensor that can also return a level instead of just true/false) has two required properties (besides the name, type, and  optional description): **`on`** and **`level`**. We want to monitor those properties and get notified if the value changes.
+A `MultiLevelSensor` (a sensor that returns a level instead of just on/off) has one required property (besides the name, type, and  optional description): **`level`**. We want to monitor this property and get notified if the value changes.
 
 First we create a new Thing:
 
 ```rust
 let mut thing = BaseThing::new(
     "My Humidity Sensor".to_owned(),
-    Some("multiLevelSensor".to_owned()),
+    Some(vec!["MultiLevelSensor".to_owned()]),
     Some("A web connected humidity sensor".to_owned()),
 );
 ```
 
-Then we create and add the appropriate properties:
-* `on`: tells us whether the sensor is on (i.e. high), or off (i.e. low)
-
-    ```rust
-    let on_description = json!({
-        "type": "boolean",
-        "description": "Whether the sensor is on"
-    });
-    let on_description = on_description.as_object().unwrap().clone();
-    thing.add_property(Box::new(BaseProperty::new(
-        "on".to_owned(),
-        json!(true),
-        None,
-        Some(on_description),
-    )));
-    ```
-
+Then we create and add the appropriate property:
 * `level`: tells us what the sensor is actually reading
     * Contrary to the light, the value cannot be set via an API call, as it wouldn't make much sense, to SET what a sensor is reading. Therefore, we are utilizing a *readOnly* value.
 
     ```rust
     let level_description = json!({
+        "@type": "LevelProperty",
+        "label": "Humidity",
         "type": "number",
         "description": "The current humidity in %",
-        "unit": "%"
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "percent"
     });
     let level_description = level_description.as_object().unwrap().clone();
     thing.add_property(Box::new(BaseProperty::new(

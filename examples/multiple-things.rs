@@ -115,7 +115,10 @@ impl Action for FadeAction {
 
             let thing = thing.clone();
             let mut thing = thing.write().unwrap();
-            let _ = thing.set_property("level".to_owned(), input.get("level").unwrap().clone());
+            let _ = thing.set_property(
+                "brightness".to_owned(),
+                input.get("brightness").unwrap().clone(),
+            );
             thing.add_event(Box::new(OverheatedEvent::new(Some(json!(102)))));
 
             thing.finish_action(name, id);
@@ -165,11 +168,11 @@ impl ValueForwarder for OnValueForwarder {
     }
 }
 
-struct LevelValueForwarder;
+struct BrightnessValueForwarder;
 
-impl ValueForwarder for LevelValueForwarder {
+impl ValueForwarder for BrightnessValueForwarder {
     fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str> {
-        println!("New light level is {}", value);
+        println!("Brightness is now {}", value);
         Ok(value)
     }
 }
@@ -178,11 +181,13 @@ impl ValueForwarder for LevelValueForwarder {
 fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
         "My Lamp".to_owned(),
-        Some("dimmableLight".to_owned()),
+        Some(vec!["OnOffSwitch".to_owned(), "Light".to_owned()]),
         Some("A web connected lamp".to_owned()),
     );
 
     let on_description = json!({
+        "@type": "OnOffProperty",
+        "label": "On/Off",
         "type": "boolean",
         "description": "Whether the lamp is turned on"
     });
@@ -194,36 +199,42 @@ fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
         Some(on_description),
     )));
 
-    let level_description = json!({
+    let brightness_description = json!({
+        "@type": "BrightnessProperty",
+        "label": "Brightness",
         "type": "number",
         "description": "The level of light from 0-100",
         "minimum": 0,
-        "maximum": 100
+        "maximum": 100,
+        "unit": "percent"
     });
-    let level_description = level_description.as_object().unwrap().clone();
+    let brightness_description = brightness_description.as_object().unwrap().clone();
     thing.add_property(Box::new(BaseProperty::new(
-        "level".to_owned(),
+        "brightness".to_owned(),
         json!(50),
-        Some(Box::new(LevelValueForwarder)),
-        Some(level_description),
+        Some(Box::new(BrightnessValueForwarder)),
+        Some(brightness_description),
     )));
 
     let fade_metadata = json!({
+        "label": "Fade",
         "description": "Fade the lamp to a given level",
         "input": {
             "type": "object",
             "required": [
-                "level",
+                "brightness",
                 "duration"
             ],
             "properties": {
-                "level": {
+                "brightness": {
                     "type": "number",
                     "minimum": 0,
-                    "maximum": 100
+                    "maximum": 100,
+                    "unit": "percent"
                 },
                 "duration": {
                     "type": "number",
+                    "minimum": 1,
                     "unit": "milliseconds"
                 }
             }
@@ -247,26 +258,18 @@ fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
 fn make_sensor() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
         "My Humidity Sensor".to_owned(),
-        Some("multiLevelSensor".to_owned()),
+        Some(vec!["MultiLevelSensor".to_owned()]),
         Some("A web connected humidity sensor".to_owned()),
     );
 
-    let on_description = json!({
-        "type": "boolean",
-        "description": "Whether the sensor is on"
-    });
-    let on_description = on_description.as_object().unwrap().clone();
-    thing.add_property(Box::new(BaseProperty::new(
-        "on".to_owned(),
-        json!(true),
-        None,
-        Some(on_description),
-    )));
-
     let level_description = json!({
+        "@type": "LevelProperty",
+        "label": "Humidity",
         "type": "number",
         "description": "The current humidity in %",
-        "unit": "%"
+        "minimum": 0,
+        "maximum": 100,
+        "unit": "percent"
     });
     let level_description = level_description.as_object().unwrap().clone();
     thing.add_property(Box::new(BaseProperty::new(
@@ -299,9 +302,11 @@ fn main() {
         loop {
             thread::sleep(time::Duration::from_millis(3000));
             let t = cloned.clone();
-            let new_value = json!(
-                70.0 * rng.gen_range::<f32>(0.0, 1.0) * (-0.5 + rng.gen_range::<f32>(0.0, 1.0))
-            );
+            let new_value =
+                70.0 * rng.gen_range::<f32>(0.0, 1.0) * (-0.5 + rng.gen_range::<f32>(0.0, 1.0));
+            let new_value = json!(new_value.abs());
+
+            println!("setting new humidity level: {}", new_value);
 
             {
                 let mut t = t.write().unwrap();

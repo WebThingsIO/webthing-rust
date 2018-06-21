@@ -114,7 +114,10 @@ impl Action for FadeAction {
 
             let thing = thing.clone();
             let mut thing = thing.write().unwrap();
-            let _ = thing.set_property("level".to_owned(), input.get("level").unwrap().clone());
+            let _ = thing.set_property(
+                "brightness".to_owned(),
+                input.get("brightness").unwrap().clone(),
+            );
             thing.add_event(Box::new(OverheatedEvent::new(Some(json!(102)))));
 
             thing.finish_action(name, id);
@@ -158,11 +161,13 @@ impl ActionGenerator for Generator {
 fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
         "My Lamp".to_owned(),
-        Some("dimmableLight".to_owned()),
+        Some(vec!["OnOffSwitch".to_owned(), "Light".to_owned()]),
         Some("A web connected lamp".to_owned()),
     );
 
     let on_description = json!({
+        "@type": "OnOffProperty",
+        "label": "On/Off",
         "type": "boolean",
         "description": "Whether the lamp is turned on"
     });
@@ -174,36 +179,42 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
         Some(on_description),
     )));
 
-    let level_description = json!({
+    let brightness_description = json!({
+        "@type": "BrightnessProperty",
+        "label": "Brightness",
         "type": "number",
         "description": "The level of light from 0-100",
         "minimum": 0,
-        "maximum": 100
+        "maximum": 100,
+        "unit": "percent"
     });
-    let level_description = level_description.as_object().unwrap().clone();
+    let brightness_description = brightness_description.as_object().unwrap().clone();
     thing.add_property(Box::new(BaseProperty::new(
-        "level".to_owned(),
+        "brightness".to_owned(),
         json!(50),
         Some(Box::new(EmptyValueForwarder)),
-        Some(level_description),
+        Some(brightness_description),
     )));
 
     let fade_metadata = json!({
+        "label": "Fade",
         "description": "Fade the lamp to a given level",
         "input": {
             "type": "object",
             "required": [
-                "level",
+                "brightness",
                 "duration"
             ],
             "properties": {
-                "level": {
+                "brightness": {
                     "type": "number",
                     "minimum": 0,
-                    "maximum": 100
+                    "maximum": 100,
+                    "unit": "percent"
                 },
                 "duration": {
                     "type": "number",
+                    "minimum": 1,
                     "unit": "milliseconds"
                 }
             }
