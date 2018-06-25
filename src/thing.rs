@@ -55,10 +55,15 @@ pub trait Thing: Send + Sync {
     /// Returns the name as a string.
     fn get_name(&self) -> String;
 
-    /// Get the type of the thing.
+    /// Get the type context of the thing.
     ///
-    /// Returns the type as a string.
-    fn get_type(&self) -> String;
+    /// Returns the context as a string.
+    fn get_context(&self) -> String;
+
+    /// Get the type(s) of the thing.
+    ///
+    /// Returns the list of types.
+    fn get_type(&self) -> Vec<String>;
 
     /// Get the description of the thing.
     ///
@@ -263,7 +268,8 @@ pub trait Thing: Send + Sync {
 ///
 /// This can easily be used by other things to handle most of the boring work.
 pub struct BaseThing {
-    type_: String,
+    context: String,
+    type_: Vec<String>,
     name: String,
     description: String,
     properties: HashMap<String, Box<Property>>,
@@ -281,12 +287,12 @@ impl BaseThing {
     /// Create a new BaseThing.
     ///
     /// name -- the thing's name
-    /// type -- the thing's type
+    /// type -- the thing's type(s)
     /// description -- description of the thing
-    pub fn new(name: String, type_: Option<String>, description: Option<String>) -> BaseThing {
+    pub fn new(name: String, type_: Option<Vec<String>>, description: Option<String>) -> BaseThing {
         let _type = match type_ {
             Some(t) => t,
-            None => "thing".to_owned(),
+            None => vec![],
         };
 
         let _description = match description {
@@ -295,6 +301,7 @@ impl BaseThing {
         };
 
         BaseThing {
+            context: "https://iot.mozilla.org/schemas".to_owned(),
             type_: _type,
             name: name,
             description: _description,
@@ -320,7 +327,8 @@ impl Thing for BaseThing {
 
         description.insert("name".to_owned(), json!(self.get_name()));
         description.insert("href".to_owned(), json!(self.get_href()));
-        description.insert("type".to_owned(), json!(self.get_type()));
+        description.insert("@context".to_owned(), json!(self.get_context()));
+        description.insert("@type".to_owned(), json!(self.get_type()));
         description.insert(
             "properties".to_owned(),
             json!(self.get_property_descriptions()),
@@ -472,10 +480,17 @@ impl Thing for BaseThing {
         self.name.clone()
     }
 
-    /// Get the type of the thing.
+    /// Get the type context of the thing.
     ///
-    /// Returns the type as a string.
-    fn get_type(&self) -> String {
+    /// Returns the context as a string.
+    fn get_context(&self) -> String {
+        self.context.clone()
+    }
+
+    /// Get the type(s) of the thing.
+    ///
+    /// Returns the list of types.
+    fn get_type(&self) -> Vec<String> {
         self.type_.clone()
     }
 
