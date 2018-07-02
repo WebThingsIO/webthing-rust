@@ -1,6 +1,7 @@
 # webthing
 
 [![Build Status](https://travis-ci.org/mozilla-iot/webthing-rust.svg?branch=master)](https://travis-ci.org/mozilla-iot/webthing-rust)
+![Crates.io](https://img.shields.io/crates/v/webthing.svg)
 [![license](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 
 Implementation of an HTTP [Web Thing](https://iot.mozilla.org/wot/).
