@@ -1,6 +1,7 @@
 /// Rust Web Thing server implementation.
 use actix;
 use actix::prelude::*;
+use actix_web::http::header;
 use actix_web::server::{HttpHandler, HttpServer};
 use actix_web::{middleware, pred, server, ws, App, Error, HttpRequest, HttpResponse, Json};
 use libmdns;
@@ -683,6 +684,19 @@ impl WebThingServer {
                             things: arc_things_clone.clone(),
                             action_generator: inner_generator_arc.clone(),
                         }).middleware(middleware::Logger::default())
+                            .middleware(
+                                middleware::cors::Cors::build()
+                                    .send_wildcard()
+                                    .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
+                                    .allowed_headers(vec![
+                                        header::ORIGIN,
+                                        header::CONTENT_TYPE,
+                                        header::ACCEPT,
+                                        header::HeaderName::from_lowercase(b"x-requested-with")
+                                            .unwrap(),
+                                    ])
+                                    .finish(),
+                            )
                             .resource("/", |r| r.get().f(things_handler_GET))
                             .scope("/{thing_id}", |scope| {
                                 scope
@@ -728,6 +742,19 @@ impl WebThingServer {
                             things: inner_things_arc.clone(),
                             action_generator: inner_generator_arc.clone(),
                         }).middleware(middleware::Logger::default())
+                            .middleware(
+                                middleware::cors::Cors::build()
+                                    .send_wildcard()
+                                    .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
+                                    .allowed_headers(vec![
+                                        header::ORIGIN,
+                                        header::CONTENT_TYPE,
+                                        header::ACCEPT,
+                                        header::HeaderName::from_lowercase(b"x-requested-with")
+                                            .unwrap(),
+                                    ])
+                                    .finish(),
+                            )
                             .resource("/", |r| {
                                 r.route()
                                     .filter(pred::Get())
