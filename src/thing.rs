@@ -77,13 +77,17 @@ pub trait Thing: Send + Sync {
 
     /// Get the thing's actions as an array.
     ///
+    /// action_name -- Optional action name to get descriptions for
+    ///
     /// Returns the action descriptions.
-    fn get_action_descriptions(&self) -> serde_json::Value;
+    fn get_action_descriptions(&self, action_name: Option<String>) -> serde_json::Value;
 
     /// Get the thing's events as an array.
     ///
+    /// event_name -- Optional event name to get descriptions for
+    ///
     /// Returns the event descriptions.
-    fn get_event_descriptions(&self) -> serde_json::Value;
+    fn get_event_descriptions(&self, event_name: Option<String>) -> serde_json::Value;
 
     /// Add a property to this thing.
     ///
@@ -108,6 +112,11 @@ pub trait Thing: Send + Sync {
     ///
     /// Returns the properties value, if found, else None.
     fn get_property(&self, property_name: String) -> Option<serde_json::Value>;
+
+    /// Get a mapping of all properties and their values.
+    ///
+    /// Returns an object of propertyName -> value.
+    fn get_properties(&self) -> serde_json::Map<String, serde_json::Value>;
 
     /// Determine whether or not this thing has a given property.
     ///
@@ -516,13 +525,28 @@ impl Thing for BaseThing {
 
     /// Get the thing's actions as an array.
     ///
+    /// action_name -- Optional action name to get descriptions for
+    ///
     /// Returns the action descriptions.
-    fn get_action_descriptions(&self) -> serde_json::Value {
+    fn get_action_descriptions(&self, action_name: Option<String>) -> serde_json::Value {
         let mut descriptions: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
 
-        for actions in self.actions.values() {
-            for action in actions {
-                descriptions.push(action.read().unwrap().as_action_description());
+        match action_name {
+            Some(action_name) => {
+                let actions = self.actions.get(&action_name);
+                if actions.is_some() {
+                    let actions = actions.unwrap();
+                    for action in actions {
+                        descriptions.push(action.read().unwrap().as_action_description());
+                    }
+                }
+            }
+            None => {
+                for actions in self.actions.values() {
+                    for action in actions {
+                        descriptions.push(action.read().unwrap().as_action_description());
+                    }
+                }
             }
         }
 
@@ -531,12 +555,25 @@ impl Thing for BaseThing {
 
     /// Get the thing's events as an array.
     ///
+    /// event_name -- Optional event name to get descriptions for
+    ///
     /// Returns the event descriptions.
-    fn get_event_descriptions(&self) -> serde_json::Value {
+    fn get_event_descriptions(&self, event_name: Option<String>) -> serde_json::Value {
         let mut descriptions: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
 
-        for event in &self.events {
-            descriptions.push(event.as_event_description());
+        match event_name {
+            Some(event_name) => {
+                for event in &self.events {
+                    if event.get_name() == event_name {
+                        descriptions.push(event.as_event_description());
+                    }
+                }
+            }
+            None => {
+                for event in &self.events {
+                    descriptions.push(event.as_event_description());
+                }
+            }
         }
 
         json!(descriptions)
@@ -577,6 +614,17 @@ impl Thing for BaseThing {
         } else {
             None
         }
+    }
+
+    /// Get a mapping of all properties and their values.
+    ///
+    /// Returns an object of propertyName -> value.
+    fn get_properties(&self) -> serde_json::Map<String, serde_json::Value> {
+        let mut properties = serde_json::Map::new();
+        for (name, property) in self.properties.iter() {
+            properties.insert(name.to_string(), json!(property.get_value()));
+        }
+        properties
     }
 
     /// Determine whether or not this thing has a given property.

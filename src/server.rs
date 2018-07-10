@@ -385,11 +385,12 @@ fn thing_handler_WS(req: HttpRequest<AppState>) -> Result<HttpResponse, Error> {
 #[allow(non_snake_case)]
 fn properties_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
-    if thing.is_none() {
-        HttpResponse::NotFound().finish()
-    } else {
-        // TODO: this is not yet defined in the spec
-        HttpResponse::Ok().finish()
+    match thing {
+        Some(thing) => {
+            let thing = thing.read().unwrap();
+            HttpResponse::Ok().json(json!(thing.get_properties()))
+        }
+        None => HttpResponse::NotFound().finish(),
     }
 }
 
@@ -474,7 +475,7 @@ fn actions_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     match thing {
         None => HttpResponse::NotFound().finish(),
-        Some(thing) => HttpResponse::Ok().json(thing.read().unwrap().get_action_descriptions()),
+        Some(thing) => HttpResponse::Ok().json(thing.read().unwrap().get_action_descriptions(None)),
     }
 }
 
@@ -547,11 +548,90 @@ fn actions_handler_POST(
 fn action_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
-        HttpResponse::NotFound().finish()
-    } else {
-        // TODO: this is not yet defined in the spec
-        HttpResponse::Ok().finish()
+        return HttpResponse::NotFound().finish();
     }
+
+    let thing = thing.unwrap();
+
+    let action_name = req.match_info().get("action_name");
+    if action_name.is_none() {
+        return HttpResponse::NotFound().finish();
+    }
+
+    let thing = thing.read().unwrap();
+    HttpResponse::Ok().json(thing.get_action_descriptions(Some(action_name.unwrap().to_string())))
+}
+
+/// Handle a POST request to /actions/<action_name>.
+#[allow(non_snake_case)]
+fn action_handler_POST(
+    req: HttpRequest<AppState>,
+    message: Json<serde_json::Value>,
+) -> HttpResponse {
+    let thing = req.state().get_thing(req.match_info().get("thing_id"));
+    if thing.is_none() {
+        return HttpResponse::NotFound().finish();
+    }
+
+    let thing = thing.unwrap();
+
+    if !message.is_object() {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    let action_name = req.match_info().get("action_name");
+    if action_name.is_none() {
+        return HttpResponse::NotFound().finish();
+    }
+
+    let action_name = action_name.unwrap();
+
+    let message = message.as_object().unwrap();
+
+    let mut response: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+    for (name, action_params) in message.iter() {
+        if name != action_name {
+            continue;
+        }
+
+        let input = action_params.get("input");
+
+        let action = req.state().get_action_generator().generate(
+            Arc::downgrade(&thing.clone()),
+            name.to_string(),
+            input,
+        );
+
+        if action.is_some() {
+            let action = action.unwrap();
+            let id = action.get_id();
+            let action = Arc::new(RwLock::new(action));
+
+            {
+                let mut thing = thing.write().unwrap();
+                let result = thing.add_action(action.clone(), input);
+
+                if result.is_err() {
+                    continue;
+                }
+            }
+
+            response.insert(
+                name.to_string(),
+                action
+                    .read()
+                    .unwrap()
+                    .as_action_description()
+                    .get(name)
+                    .unwrap()
+                    .clone(),
+            );
+
+            thing.write().unwrap().start_action(name.to_string(), id);
+        }
+    }
+
+    HttpResponse::Created().json(response)
 }
 
 /// Handle a GET request to /actions/<action_name>/<action_id>.
@@ -631,7 +711,7 @@ fn events_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     match thing {
         None => HttpResponse::NotFound().finish(),
-        Some(thing) => HttpResponse::Ok().json(thing.read().unwrap().get_event_descriptions()),
+        Some(thing) => HttpResponse::Ok().json(thing.read().unwrap().get_event_descriptions(None)),
     }
 }
 
@@ -640,11 +720,18 @@ fn events_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 fn event_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
-        HttpResponse::NotFound().finish()
-    } else {
-        // TODO: this is not yet defined in the spec
-        HttpResponse::Ok().finish()
+        return HttpResponse::NotFound().finish();
     }
+
+    let thing = thing.unwrap();
+
+    let event_name = req.match_info().get("event_name");
+    if event_name.is_none() {
+        return HttpResponse::NotFound().finish();
+    }
+
+    let thing = thing.read().unwrap();
+    HttpResponse::Ok().json(thing.get_event_descriptions(Some(event_name.unwrap().to_string())))
 }
 
 /// Server to represent a Web Thing over HTTP.
@@ -783,7 +870,8 @@ impl WebThingServer {
                                         r.post().with2(actions_handler_POST);
                                     })
                                     .resource("/actions/{action_name}", |r| {
-                                        r.get().f(action_handler_GET)
+                                        r.get().f(action_handler_GET);
+                                        r.post().with2(action_handler_POST);
                                     })
                                     .resource("/actions/{action_name}/{action_id}", |r| {
                                         r.get().f(action_id_handler_GET);
@@ -839,7 +927,10 @@ impl WebThingServer {
                                 r.get().f(actions_handler_GET);
                                 r.post().with2(actions_handler_POST);
                             })
-                            .resource("/actions/{action_name}", |r| r.get().f(action_handler_GET))
+                            .resource("/actions/{action_name}", |r| {
+                                r.get().f(action_handler_GET);
+                                r.post().with2(action_handler_POST);
+                            })
                             .resource("/actions/{action_name}/{action_id}", |r| {
                                 r.get().f(action_id_handler_GET);
                                 r.delete().f(action_id_handler_DELETE);
