@@ -615,7 +615,6 @@ fn event_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 
 /// Server to represent a Web Thing over HTTP.
 pub struct WebThingServer {
-    ip: String,
     port: u16,
     name: String,
     ssl_options: Option<(String, String)>,
@@ -762,7 +761,6 @@ impl WebThingServer {
         let sys = actix::System::new("webthing");
 
         WebThingServer {
-            ip: ip,
             port: port,
             name: name,
             ssl_options: ssl_options,
@@ -774,21 +772,12 @@ impl WebThingServer {
 
     /// Start listening for incoming connections.
     pub fn start(mut self) {
-        let protocol = if self.ssl_options.is_none() {
-            "http"
-        } else {
-            "https"
-        };
-
         let responder = libmdns::Responder::new().unwrap();
         let svc = responder.register(
-            "_http._tcp".to_owned(),
+            "_webthing._tcp".to_owned(),
             self.name.clone(),
             self.port,
-            &[
-                &format!("url={}://{}:{}", protocol, self.ip, self.port),
-                "webthing=true",
-            ],
+            &["path=/"],
         );
         self.mdns = Some(svc);
 
