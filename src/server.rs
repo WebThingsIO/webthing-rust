@@ -1,9 +1,13 @@
 /// Rust Web Thing server implementation.
 use actix;
 use actix::prelude::*;
+use actix_web;
+use actix_web::HttpMessage;
+use actix_web::error::{ErrorForbidden, ParseError};
 use actix_web::http::header;
 use actix_web::server::{HttpHandler, HttpServer};
 use actix_web::{middleware, pred, server, ws, App, Error, HttpRequest, HttpResponse, Json};
+use hostname::get_hostname;
 use libmdns;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
@@ -43,6 +47,7 @@ pub trait ActionGenerator: Send + Sync {
 /// Shared app state, used by server threads.
 pub struct AppState {
     things: Arc<ThingsType>,
+    hosts: Arc<Vec<String>>,
     action_generator: Arc<Box<ActionGenerator>>,
 }
 
@@ -82,6 +87,34 @@ impl AppState {
 
     fn get_action_generator(&self) -> Arc<Box<ActionGenerator>> {
         self.action_generator.clone()
+    }
+
+    fn validate_host(&self, host: String) -> Result<(), ()> {
+        if self.hosts.contains(&host) {
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+}
+
+/// Host validation middleware
+struct HostValidator;
+
+impl middleware::Middleware<AppState> for HostValidator {
+    fn start(&self, req: &mut HttpRequest<AppState>) -> actix_web::Result<middleware::Started> {
+        let r = req.clone();
+
+        let host = r.headers()
+            .get("Host")
+            .ok_or(ErrorForbidden(ParseError::Header))?
+            .to_str()
+            .map_err(ErrorForbidden)?;
+
+        match r.state().validate_host(host.to_string()) {
+            Ok(_) => Ok(middleware::Started::Done),
+            Err(_) => Err(ErrorForbidden(ParseError::Header)),
+        }
     }
 }
 
@@ -631,11 +664,13 @@ impl WebThingServer {
     /// name -- name of this device -- this is only needed if the server is
     ///         managing multiple things
     /// port -- port to listen on (defaults to 80)
+    /// hostname -- optional host name, i.e. mything.com
     /// ssl_options -- tuple of SSL options to pass to the actix web server
     /// action_generator -- action generator struct
     pub fn new(
         mut things: ThingsType,
         port: Option<u16>,
+        hostname: Option<String>,
         ssl_options: Option<(String, String)>,
         action_generator: Box<ActionGenerator>,
     ) -> WebThingServer {
@@ -645,6 +680,28 @@ impl WebThingServer {
             Some(p) => p,
             None => 80,
         };
+
+        let mut hosts = vec![
+            "127.0.0.1".to_owned(),
+            format!("127.0.0.1:{}", port),
+            "localhost".to_owned(),
+            format!("localhost:{}", port),
+            ip.clone(),
+            format!("{}:{}", ip, port),
+        ];
+
+        let system_hostname = get_hostname();
+        if system_hostname.is_some() {
+            let name = system_hostname.unwrap();
+            hosts.push(format!("{}.local", name));
+            hosts.push(format!("{}.local:{}", name, port));
+        }
+
+        if hostname.is_some() {
+            let name = hostname.clone().unwrap();
+            hosts.push(name.clone());
+            hosts.push(format!("{}:{}", name, port));
+        }
 
         let name = match &things {
             ThingsType::Single(thing) => thing.read().unwrap().get_name(),
@@ -656,25 +713,32 @@ impl WebThingServer {
             None => "ws",
         };
 
+        let ws_host = match hostname {
+            Some(hostname) => hostname,
+            None => ip,
+        };
+
         match &mut things {
             ThingsType::Multiple(ref mut things, _) => {
                 for (idx, thing) in things.iter_mut().enumerate() {
                     let mut thing = thing.write().unwrap();
                     thing.set_href_prefix(format!("/{}", idx));
-                    thing.set_ws_href(format!("{}://{}:{}/{}", ws_protocol, ip, port, idx));
+                    thing.set_ws_href(format!("{}://{}:{}/{}", ws_protocol, ws_host, port, idx));
                 }
             }
             ThingsType::Single(thing) => {
                 thing
                     .write()
                     .unwrap()
-                    .set_ws_href(format!("{}://{}:{}", ws_protocol, ip, port));
+                    .set_ws_href(format!("{}://{}:{}", ws_protocol, ws_host, port));
             }
         }
 
         let generator_arc = Arc::new(action_generator);
         let arc_things = Arc::new(things.clone());
         let arc_things_clone = arc_things.clone();
+        let arc_hosts = Arc::new(hosts.clone());
+        let arc_hosts_clone = arc_hosts.clone();
         let server = match &things {
             ThingsType::Multiple(_, _) => {
                 let inner_generator_arc = generator_arc.clone();
@@ -682,8 +746,10 @@ impl WebThingServer {
                     vec![
                         App::with_state(AppState {
                             things: arc_things_clone.clone(),
+                            hosts: arc_hosts_clone.clone(),
                             action_generator: inner_generator_arc.clone(),
                         }).middleware(middleware::Logger::default())
+                            .middleware(HostValidator)
                             .middleware(
                                 middleware::cors::Cors::build()
                                     .send_wildcard()
@@ -740,8 +806,10 @@ impl WebThingServer {
                     vec![
                         App::with_state(AppState {
                             things: inner_things_arc.clone(),
+                            hosts: arc_hosts_clone.clone(),
                             action_generator: inner_generator_arc.clone(),
                         }).middleware(middleware::Logger::default())
+                            .middleware(HostValidator)
                             .middleware(
                                 middleware::cors::Cors::build()
                                     .send_wildcard()
