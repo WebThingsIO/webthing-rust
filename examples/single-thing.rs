@@ -244,6 +244,7 @@ fn main() {
         ThingsType::Single(thing),
         Some(8888),
         None,
+        None,
         Box::new(Generator),
     );
     server.start();

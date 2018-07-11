@@ -326,6 +326,7 @@ fn main() {
         ThingsType::Multiple(things, "LightAndTempDevice".to_owned()),
         Some(8888),
         None,
+        None,
         Box::new(Generator),
     );
     server.start();
