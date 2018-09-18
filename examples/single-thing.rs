@@ -7,9 +7,10 @@ extern crate webthing;
 use std::sync::{Arc, RwLock, Weak};
 use std::{thread, time};
 use uuid::Uuid;
-use webthing::property::EmptyValueForwarder;
-use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Thing, ThingsType,
-               WebThingServer};
+use webthing::{
+    Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Thing, ThingsType,
+    WebThingServer,
+};
 
 use webthing::server::ActionGenerator;
 
@@ -175,7 +176,7 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     thing.add_property(Box::new(BaseProperty::new(
         "on".to_owned(),
         json!(true),
-        Some(Box::new(EmptyValueForwarder)),
+        None,
         Some(on_description),
     )));
 
@@ -192,7 +193,7 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     thing.add_property(Box::new(BaseProperty::new(
         "brightness".to_owned(),
         json!(50),
-        Some(Box::new(EmptyValueForwarder)),
+        None,
         Some(brightness_description),
     )));
 
