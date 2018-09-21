@@ -11,8 +11,10 @@ use std::{thread, time};
 use uuid::Uuid;
 use webthing::property::ValueForwarder;
 use webthing::server::ActionGenerator;
-use webthing::{Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Thing, ThingsType,
-               WebThingServer};
+use webthing::{
+    Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Thing, ThingsType,
+    WebThingServer,
+};
 
 pub struct OverheatedEvent(BaseEvent);
 
@@ -269,7 +271,8 @@ fn make_sensor() -> Arc<RwLock<Box<Thing + 'static>>> {
         "description": "The current humidity in %",
         "minimum": 0,
         "maximum": 100,
-        "unit": "percent"
+        "unit": "percent",
+        "readOnly": true
     });
     let level_description = level_description.as_object().unwrap().clone();
     thing.add_property(Box::new(BaseProperty::new(

@@ -119,7 +119,7 @@ This will start the server, making the light available via the WoT REST API and 
 
 Let's now also connect a humidity sensor to the server we set up for our light.
 
-A `MultiLevelSensor` (a sensor that returns a level instead of just on/off) has one required property (besides the name, type, and  optional description): **`level`**. We want to monitor this property and get notified if the value changes.
+A `MultiLevelSensor` (a sensor that returns a level instead of just on/off) has one required property (besides the name, type, and optional description): **`level`**. We want to monitor this property and get notified if the value changes.
 
 First we create a new Thing:
 
@@ -133,7 +133,7 @@ let mut thing = BaseThing::new(
 
 Then we create and add the appropriate property:
 * `level`: tells us what the sensor is actually reading
-    * Contrary to the light, the value cannot be set via an API call, as it wouldn't make much sense, to SET what a sensor is reading. Therefore, we are utilizing a *readOnly* value.
+    * Contrary to the light, the value cannot be set via an API call, as it wouldn't make much sense, to SET what a sensor is reading. Therefore, we are creating a *readOnly* property.
 
     ```rust
     let level_description = json!({
@@ -143,7 +143,8 @@ Then we create and add the appropriate property:
         "description": "The current humidity in %",
         "minimum": 0,
         "maximum": 100,
-        "unit": "percent"
+        "unit": "percent",
+        "readOnly": true
     });
     let level_description = level_description.as_object().unwrap().clone();
     thing.add_property(Box::new(BaseProperty::new(

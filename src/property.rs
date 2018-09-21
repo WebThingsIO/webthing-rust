@@ -7,18 +7,22 @@ pub trait ValueForwarder: Send + Sync {
     fn set_value(&mut self, serde_json::Value) -> Result<serde_json::Value, &'static str>;
 }
 
-/// A basic value forwarder that does nothing, but allows the property to be writable.
-pub struct EmptyValueForwarder;
-
-impl ValueForwarder for EmptyValueForwarder {
-    /// Set the new value of the property.
-    fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str> {
-        Ok(value)
-    }
-}
-
 /// High-level Property trait.
 pub trait Property: Send + Sync {
+    /// Determine whether or not the property is read-only.
+    ///
+    /// Returns a boolean indicating read-only status.
+    fn read_only(&self) -> bool {
+        let description = self.get_metadata();
+        match description.get("readOnly") {
+            Some(v) => match v.as_bool() {
+                Some(b) => b,
+                None => false,
+            },
+            None => false,
+        }
+    }
+
     /// Get the property description.
     ///
     /// Returns a JSON value describing the property.
@@ -123,6 +127,10 @@ impl Property for BaseProperty {
     ///
     /// value -- the value to set
     fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str> {
+        if self.read_only() {
+            return Err("Read-only value");
+        }
+
         match self.value_forwarder {
             Some(ref mut vf) => match vf.set_value(value) {
                 Ok(v) => {
@@ -131,7 +139,10 @@ impl Property for BaseProperty {
                 }
                 Err(e) => Err(e),
             },
-            None => Err("Read-only value"),
+            None => {
+                self.last_value = value;
+                Ok(())
+            }
         }
     }
 
