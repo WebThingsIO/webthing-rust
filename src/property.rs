@@ -12,15 +12,67 @@ pub trait Property: Send + Sync {
     /// Determine whether or not the property is read-only.
     ///
     /// Returns a boolean indicating read-only status.
-    fn read_only(&self) -> bool {
+    fn validate_value(&self, value: &serde_json::Value) -> Result<(), &'static str> {
         let description = self.get_metadata();
-        match description.get("readOnly") {
-            Some(v) => match v.as_bool() {
-                Some(b) => b,
-                None => false,
-            },
-            None => false,
+
+        if description.contains_key("type") {
+            match description.get("type").unwrap().as_str().unwrap() {
+                "null" => if !value.is_null() {
+                    return Err("Value must be null");
+                },
+                "boolean" => if !value.is_boolean() {
+                    return Err("Value must be a boolean");
+                },
+                "object" => if !value.is_object() {
+                    return Err("Value must be an object");
+                },
+                "array" => if !value.is_array() {
+                    return Err("Value must be an array");
+                },
+                "number" => if !value.is_number() {
+                    return Err("Value must be a number");
+                },
+                "integer" => if !value.is_u64() {
+                    return Err("Value must be an integer");
+                },
+                "string" => if !value.is_string() {
+                    return Err("Value must be a string");
+                },
+                _ => {}
+            }
         }
+
+        if description.contains_key("readOnly") {
+            let b = description.get("readOnly").unwrap().as_bool();
+            if b.is_some() && b.unwrap() {
+                return Err("Read-only property");
+            }
+        }
+
+        if description.contains_key("minimum") {
+            let minimum = description.get("minimum").unwrap().as_f64().unwrap();
+            let v = value.as_f64().unwrap();
+            if v < minimum {
+                return Err("Value less than minimum");
+            }
+        }
+
+        if description.contains_key("maximum") {
+            let maximum = description.get("maximum").unwrap().as_f64().unwrap();
+            let v = value.as_f64().unwrap();
+            if v > maximum {
+                return Err("Value greater than maximum");
+            }
+        }
+
+        if description.contains_key("enum") && description.contains_key("type") {
+            let e = description.get("enum").unwrap().as_array().unwrap();
+            if e.len() > 0 && !e.contains(&value) {
+                return Err("Invalid enum value");
+            }
+        }
+
+        Ok(())
     }
 
     /// Get the property description.
@@ -127,8 +179,9 @@ impl Property for BaseProperty {
     ///
     /// value -- the value to set
     fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str> {
-        if self.read_only() {
-            return Err("Read-only value");
+        let result = self.validate_value(&value);
+        if result.is_err() {
+            return result;
         }
 
         match self.value_forwarder {
