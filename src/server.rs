@@ -249,7 +249,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                                     {{
                                         "messageType": "error",
                                         "data": {{
-                                            "status": "403 Forbidden",
+                                            "status": "400 Bad Request",
                                             "message": "{}"
                                         }}
                                     }}"#,
@@ -464,7 +464,7 @@ fn property_handler_PUT(
                 json!({property_name: thing.get_property(property_name.to_string()).unwrap()}),
             )
         } else {
-            HttpResponse::Forbidden().finish()
+            HttpResponse::BadRequest().finish()
         }
     } else {
         HttpResponse::NotFound().finish()
