@@ -90,7 +90,7 @@ impl AppState {
     }
 
     fn validate_host(&self, host: String) -> Result<(), ()> {
-        if self.hosts.contains(&host) {
+        if self.hosts.contains(&host.to_lowercase()) {
             Ok(())
         } else {
             Err(())
@@ -781,13 +781,13 @@ impl WebThingServer {
 
         let system_hostname = get_hostname();
         if system_hostname.is_some() {
-            let name = system_hostname.unwrap();
+            let name = system_hostname.unwrap().to_lowercase();;
             hosts.push(format!("{}.local", name));
             hosts.push(format!("{}.local:{}", name, port));
         }
 
         if hostname.is_some() {
-            let name = hostname.clone().unwrap();
+            let name = hostname.clone().unwrap().to_lowercase();
             hosts.push(name.clone());
             hosts.push(format!("{}:{}", name, port));
         }
