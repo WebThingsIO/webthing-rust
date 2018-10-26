@@ -236,16 +236,17 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                 let thing = self.get_thing();
 
                 match msg_type {
-                    "setProperty" => for (property_name, property_value) in data.iter() {
-                        let result = thing
-                            .write()
-                            .unwrap()
-                            .set_property(property_name.to_string(), property_value.clone());
+                    "setProperty" => {
+                        for (property_name, property_value) in data.iter() {
+                            let result = thing
+                                .write()
+                                .unwrap()
+                                .set_property(property_name.to_string(), property_value.clone());
 
-                        if result.is_err() {
-                            let err = result.unwrap_err();
-                            return ctx.text(format!(
-                                r#"
+                            if result.is_err() {
+                                let err = result.unwrap_err();
+                                return ctx.text(format!(
+                                    r#"
                                     {{
                                         "messageType": "error",
                                         "data": {{
@@ -253,21 +254,23 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                                             "message": "{}"
                                         }}
                                     }}"#,
-                                err
-                            ));
+                                    err
+                                ));
+                            }
                         }
-                    },
-                    "requestAction" => for (action_name, action_params) in data.iter() {
-                        let input = action_params.get("input");
-                        let action = self.action_generator.generate(
-                            Arc::downgrade(&self.get_thing()),
-                            action_name.to_string(),
-                            input,
-                        );
+                    }
+                    "requestAction" => {
+                        for (action_name, action_params) in data.iter() {
+                            let input = action_params.get("input");
+                            let action = self.action_generator.generate(
+                                Arc::downgrade(&self.get_thing()),
+                                action_name.to_string(),
+                                input,
+                            );
 
-                        if action.is_none() {
-                            return ctx.text(format!(
-                                r#"
+                            if action.is_none() {
+                                return ctx.text(format!(
+                                    r#"
                                 {{
                                     "messageType": "error",
                                     "data": {{
@@ -276,21 +279,21 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                                         "request": {}
                                     }}
                                 }}"#,
-                                text
-                            ));
-                        }
+                                    text
+                                ));
+                            }
 
-                        let action = action.unwrap();
-                        let id = action.get_id();
-                        let action = Arc::new(RwLock::new(action));
+                            let action = action.unwrap();
+                            let id = action.get_id();
+                            let action = Arc::new(RwLock::new(action));
 
-                        {
-                            let mut thing = thing.write().unwrap();
-                            let result = thing.add_action(action.clone(), input);
+                            {
+                                let mut thing = thing.write().unwrap();
+                                let result = thing.add_action(action.clone(), input);
 
-                            if result.is_err() {
-                                return ctx.text(format!(
-                                    r#"
+                                if result.is_err() {
+                                    return ctx.text(format!(
+                                        r#"
                                     {{
                                         "messageType": "error",
                                         "data": {{
@@ -298,22 +301,25 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
                                             "message": "Failed to start action: {}"
                                         }}
                                     }}"#,
-                                    result.unwrap_err()
-                                ));
+                                        result.unwrap_err()
+                                    ));
+                                }
                             }
-                        }
 
-                        thing
-                            .write()
-                            .unwrap()
-                            .start_action(action_name.to_string(), id);
-                    },
-                    "addEventSubscription" => for event_name in data.keys() {
-                        thing
-                            .write()
-                            .unwrap()
-                            .add_event_subscriber(event_name.to_string(), self.get_id());
-                    },
+                            thing
+                                .write()
+                                .unwrap()
+                                .start_action(action_name.to_string(), id);
+                        }
+                    }
+                    "addEventSubscription" => {
+                        for event_name in data.keys() {
+                            thing
+                                .write()
+                                .unwrap()
+                                .add_event_subscriber(event_name.to_string(), self.get_id());
+                        }
+                    }
                     unknown => {
                         return ctx.text(format!(
                             r#"
@@ -458,7 +464,8 @@ fn property_handler_PUT(
             .set_property(
                 property_name.to_string(),
                 args.get(property_name).unwrap().clone(),
-            ).is_ok()
+            )
+            .is_ok()
         {
             HttpResponse::Ok().json(
                 json!({property_name: thing.get_property(property_name.to_string()).unwrap()}),
@@ -738,11 +745,11 @@ fn event_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 
 /// Server to represent a Web Thing over HTTP.
 pub struct WebThingServer {
-    port: u16,
-    name: String,
+    things: ThingsType,
+    port: Option<u16>,
+    hostname: Option<String>,
     ssl_options: Option<(String, String)>,
-    server: HttpServer<Box<HttpHandler>>,
-    mdns: Option<libmdns::Service>,
+    generator_arc: Arc<Box<ActionGenerator>>,
     system: actix::SystemRunner,
 }
 
@@ -757,15 +764,29 @@ impl WebThingServer {
     /// ssl_options -- tuple of SSL options to pass to the actix web server
     /// action_generator -- action generator struct
     pub fn new(
-        mut things: ThingsType,
+        things: ThingsType,
         port: Option<u16>,
         hostname: Option<String>,
         ssl_options: Option<(String, String)>,
         action_generator: Box<ActionGenerator>,
     ) -> WebThingServer {
+        let sys = actix::System::new("webthing");
+        let generator_arc = Arc::new(action_generator);
+        WebThingServer {
+            things: things,
+            port: port,
+            hostname: hostname,
+            ssl_options: ssl_options,
+            generator_arc: generator_arc,
+            system: sys,
+        }
+    }
+
+    /// Start listening for incoming connections.
+    pub fn start(&mut self) -> actix::Addr<Syn, HttpServer<Box<HttpHandler>>> {
         let ip = get_ip();
 
-        let port = match port {
+        let port = match self.port {
             Some(p) => p,
             None => 80,
         };
@@ -786,28 +807,28 @@ impl WebThingServer {
             hosts.push(format!("{}.local:{}", name, port));
         }
 
-        if hostname.is_some() {
-            let name = hostname.clone().unwrap().to_lowercase();
+        if self.hostname.is_some() {
+            let name = self.hostname.clone().unwrap().to_lowercase();
             hosts.push(name.clone());
             hosts.push(format!("{}:{}", name, port));
         }
 
-        let name = match &things {
+        let name = match &self.things {
             ThingsType::Single(thing) => thing.read().unwrap().get_name(),
             ThingsType::Multiple(_, name) => name.to_owned(),
         };
 
-        let ws_protocol = match ssl_options {
+        let ws_protocol = match self.ssl_options {
             Some(_) => "wss",
             None => "ws",
         };
 
-        let ws_host = match hostname {
-            Some(hostname) => hostname,
+        let ws_host = match self.hostname {
+            Some(ref hostname) => hostname.clone(),
             None => ip,
         };
 
-        match &mut things {
+        match &mut self.things {
             ThingsType::Multiple(ref mut things, _) => {
                 for (idx, thing) in things.iter_mut().enumerate() {
                     let mut thing = thing.write().unwrap();
@@ -823,134 +844,124 @@ impl WebThingServer {
             }
         }
 
-        let generator_arc = Arc::new(action_generator);
-        let arc_things = Arc::new(things.clone());
+        let arc_things = Arc::new(self.things.clone());
         let arc_things_clone = arc_things.clone();
         let arc_hosts = Arc::new(hosts.clone());
         let arc_hosts_clone = arc_hosts.clone();
-        let server = match &things {
+        let server = match &self.things {
             ThingsType::Multiple(_, _) => {
-                let inner_generator_arc = generator_arc.clone();
+                let inner_generator_arc = self.generator_arc.clone();
                 server::new(move || {
-                    vec![
-                        App::with_state(AppState {
-                            things: arc_things_clone.clone(),
-                            hosts: arc_hosts_clone.clone(),
-                            action_generator: inner_generator_arc.clone(),
-                        }).middleware(middleware::Logger::default())
-                        .middleware(HostValidator)
-                        .middleware(
-                            middleware::cors::Cors::build()
-                                .send_wildcard()
-                                .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
-                                .allowed_headers(vec![
-                                    header::ORIGIN,
-                                    header::CONTENT_TYPE,
-                                    header::ACCEPT,
-                                    header::HeaderName::from_lowercase(b"x-requested-with")
-                                        .unwrap(),
-                                ]).finish(),
-                        ).resource("/", |r| r.get().f(things_handler_GET))
-                        .scope("/{thing_id}", |scope| {
-                            scope
-                                .resource("", |r| {
-                                    r.route()
-                                        .filter(pred::Get())
-                                        .filter(pred::Header("upgrade", "websocket"))
-                                        .f(thing_handler_WS);
-                                    r.get().f(thing_handler_GET)
-                                }).resource("/properties", |r| r.get().f(properties_handler_GET))
-                                .resource("/properties/{property_name}", |r| {
-                                    r.get().f(property_handler_GET);
-                                    r.put().with2(property_handler_PUT);
-                                }).resource("/actions", |r| {
-                                    r.get().f(actions_handler_GET);
-                                    r.post().with2(actions_handler_POST);
-                                }).resource("/actions/{action_name}", |r| {
-                                    r.get().f(action_handler_GET);
-                                    r.post().with2(action_handler_POST);
-                                }).resource("/actions/{action_name}/{action_id}", |r| {
-                                    r.get().f(action_id_handler_GET);
-                                    r.delete().f(action_id_handler_DELETE);
-                                    r.put().with2(action_id_handler_PUT);
-                                }).resource("/events", |r| r.get().f(events_handler_GET))
-                                .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
-                        }).boxed(),
-                    ]
+                    vec![App::with_state(AppState {
+                        things: arc_things_clone.clone(),
+                        hosts: arc_hosts_clone.clone(),
+                        action_generator: inner_generator_arc.clone(),
+                    })
+                    .middleware(middleware::Logger::default())
+                    .middleware(HostValidator)
+                    .middleware(
+                        middleware::cors::Cors::build()
+                            .send_wildcard()
+                            .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
+                            .allowed_headers(vec![
+                                header::ORIGIN,
+                                header::CONTENT_TYPE,
+                                header::ACCEPT,
+                                header::HeaderName::from_lowercase(b"x-requested-with").unwrap(),
+                            ])
+                            .finish(),
+                    )
+                    .resource("/", |r| r.get().f(things_handler_GET))
+                    .scope("/{thing_id}", |scope| {
+                        scope
+                            .resource("", |r| {
+                                r.route()
+                                    .filter(pred::Get())
+                                    .filter(pred::Header("upgrade", "websocket"))
+                                    .f(thing_handler_WS);
+                                r.get().f(thing_handler_GET)
+                            })
+                            .resource("/properties", |r| r.get().f(properties_handler_GET))
+                            .resource("/properties/{property_name}", |r| {
+                                r.get().f(property_handler_GET);
+                                r.put().with2(property_handler_PUT);
+                            })
+                            .resource("/actions", |r| {
+                                r.get().f(actions_handler_GET);
+                                r.post().with2(actions_handler_POST);
+                            })
+                            .resource("/actions/{action_name}", |r| {
+                                r.get().f(action_handler_GET);
+                                r.post().with2(action_handler_POST);
+                            })
+                            .resource("/actions/{action_name}/{action_id}", |r| {
+                                r.get().f(action_id_handler_GET);
+                                r.delete().f(action_id_handler_DELETE);
+                                r.put().with2(action_id_handler_PUT);
+                            })
+                            .resource("/events", |r| r.get().f(events_handler_GET))
+                            .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
+                    })
+                    .boxed()]
                 })
             }
             ThingsType::Single(_thing) => {
                 let inner_things_arc = arc_things.clone();
-                let inner_generator_arc = generator_arc.clone();
+                let inner_generator_arc = self.generator_arc.clone();
                 server::new(move || {
-                    vec![
-                        App::with_state(AppState {
-                            things: inner_things_arc.clone(),
-                            hosts: arc_hosts_clone.clone(),
-                            action_generator: inner_generator_arc.clone(),
-                        }).middleware(middleware::Logger::default())
-                        .middleware(HostValidator)
-                        .middleware(
-                            middleware::cors::Cors::build()
-                                .send_wildcard()
-                                .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
-                                .allowed_headers(vec![
-                                    header::ORIGIN,
-                                    header::CONTENT_TYPE,
-                                    header::ACCEPT,
-                                    header::HeaderName::from_lowercase(b"x-requested-with")
-                                        .unwrap(),
-                                ]).finish(),
-                        ).resource("/", |r| {
-                            r.route()
-                                .filter(pred::Get())
-                                .filter(pred::Header("upgrade", "websocket"))
-                                .f(thing_handler_WS);
-                            r.get().f(thing_handler_GET)
-                        }).resource("/properties", |r| r.get().f(properties_handler_GET))
-                        .resource("/properties/{property_name}", |r| {
-                            r.get().f(property_handler_GET);
-                            r.put().with2(property_handler_PUT);
-                        }).resource("/actions", |r| {
-                            r.get().f(actions_handler_GET);
-                            r.post().with2(actions_handler_POST);
-                        }).resource("/actions/{action_name}", |r| {
-                            r.get().f(action_handler_GET);
-                            r.post().with2(action_handler_POST);
-                        }).resource("/actions/{action_name}/{action_id}", |r| {
-                            r.get().f(action_id_handler_GET);
-                            r.delete().f(action_id_handler_DELETE);
-                            r.put().with2(action_id_handler_PUT);
-                        }).resource("/events", |r| r.get().f(events_handler_GET))
-                        .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
-                        .boxed(),
-                    ]
+                    vec![App::with_state(AppState {
+                        things: inner_things_arc.clone(),
+                        hosts: arc_hosts_clone.clone(),
+                        action_generator: inner_generator_arc.clone(),
+                    })
+                    .middleware(middleware::Logger::default())
+                    .middleware(HostValidator)
+                    .middleware(
+                        middleware::cors::Cors::build()
+                            .send_wildcard()
+                            .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
+                            .allowed_headers(vec![
+                                header::ORIGIN,
+                                header::CONTENT_TYPE,
+                                header::ACCEPT,
+                                header::HeaderName::from_lowercase(b"x-requested-with").unwrap(),
+                            ])
+                            .finish(),
+                    )
+                    .resource("/", |r| {
+                        r.route()
+                            .filter(pred::Get())
+                            .filter(pred::Header("upgrade", "websocket"))
+                            .f(thing_handler_WS);
+                        r.get().f(thing_handler_GET)
+                    })
+                    .resource("/properties", |r| r.get().f(properties_handler_GET))
+                    .resource("/properties/{property_name}", |r| {
+                        r.get().f(property_handler_GET);
+                        r.put().with2(property_handler_PUT);
+                    })
+                    .resource("/actions", |r| {
+                        r.get().f(actions_handler_GET);
+                        r.post().with2(actions_handler_POST);
+                    })
+                    .resource("/actions/{action_name}", |r| {
+                        r.get().f(action_handler_GET);
+                        r.post().with2(action_handler_POST);
+                    })
+                    .resource("/actions/{action_name}/{action_id}", |r| {
+                        r.get().f(action_id_handler_GET);
+                        r.delete().f(action_id_handler_DELETE);
+                        r.put().with2(action_id_handler_PUT);
+                    })
+                    .resource("/events", |r| r.get().f(events_handler_GET))
+                    .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
+                    .boxed()]
                 })
             }
         };
 
-        let sys = actix::System::new("webthing");
-
-        WebThingServer {
-            port: port,
-            name: name,
-            ssl_options: ssl_options,
-            server: server,
-            mdns: None,
-            system: sys,
-        }
-    }
-
-    /// Start listening for incoming connections.
-    pub fn start(mut self) {
         let responder = libmdns::Responder::new().unwrap();
-        let svc = responder.register(
-            "_webthing._tcp".to_owned(),
-            self.name.clone(),
-            self.port,
-            &["path=/"],
-        );
-        self.mdns = Some(svc);
+        responder.register("_webthing._tcp".to_owned(), name.clone(), port, &["path=/"]);
 
         match self.ssl_options {
             Some(ref o) => {
@@ -959,25 +970,20 @@ impl WebThingServer {
                     .set_private_key_file(o.0.clone(), SslFiletype::PEM)
                     .unwrap();
                 builder.set_certificate_chain_file(o.1.clone()).unwrap();
-                self.server
-                    .bind_ssl(format!("0.0.0.0:{}", self.port), builder)
+                server
+                    .bind_ssl(format!("0.0.0.0:{}", port), builder)
                     .expect("Failed to bind socket")
-                    .start();
+                    .start()
             }
-            None => {
-                self.server
-                    .bind(format!("0.0.0.0:{}", self.port))
-                    .expect("Failed to bind socket")
-                    .start();
-            }
+            None => server
+                .bind(format!("0.0.0.0:{}", port))
+                .expect("Failed to bind socket")
+                .start(),
         }
-
-        self.system.run();
     }
 
-    /// Stop listening.
-    pub fn stop(self) {
-        drop(self.mdns.unwrap());
-        self.server.system_exit();
+    /// Start the system and run the server. This is a blocking method call.
+    pub fn run(self) {
+        self.system.run();
     }
 }
