@@ -12,7 +12,7 @@ If you're using `Cargo`, just add `webthing` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-webthing = "0.5"
+webthing = "0.8"
 ```
 
 # Example
@@ -111,6 +111,7 @@ let server = WebThingServer::new(
     Box::new(Generator),
 );
 server.start();
+server.run();
 ```
 
 This will start the server, making the light available via the WoT REST API and announcing it as a discoverable resource on your local network via mDNS.
