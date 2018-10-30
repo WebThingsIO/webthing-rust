@@ -325,12 +325,13 @@ fn main() {
 
     // If adding more than one thing, use ThingsType::Multiple() with a name.
     // In the single thing case, the thing's name will be broadcast.
-    let server = WebThingServer::new(
+    let mut server = WebThingServer::new(
         ThingsType::Multiple(things, "LightAndTempDevice".to_owned()),
         Some(8888),
         None,
         None,
         Box::new(Generator),
     );
+    server.create();
     server.start();
 }

@@ -12,7 +12,7 @@ If you're using `Cargo`, just add `webthing` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-webthing = "0.5"
+webthing = "0.8"
 ```
 
 # Example
@@ -104,12 +104,13 @@ things.push(Arc::new(RwLock::new(Box::new(light)));
 
 // If adding more than one thing, use ThingsType::Multiple() with a name.
 // In the single thing case, the thing's name will be broadcast.
-let server = WebThingServer::new(
+let mut server = WebThingServer::new(
     ThingsType::Multiple(things, "LightAndTempDevice".to_owned()),
     Some(8888),
     None,
     Box::new(Generator),
 );
+let server_addr = server.create();
 server.start();
 ```
 

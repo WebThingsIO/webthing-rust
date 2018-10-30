@@ -3,7 +3,9 @@ extern crate env_logger;
 extern crate serde_json;
 extern crate uuid;
 extern crate webthing;
+extern crate actix;
 
+use actix::actors::signal;
 use std::sync::{Arc, RwLock, Weak};
 use std::{thread, time};
 use uuid::Uuid;
@@ -248,6 +250,12 @@ fn main() {
         None,
         Box::new(Generator),
     );
-    server.create();
+    let server_address = server.create();
+
+    thread::spawn(move || {
+        thread::sleep(std::time::Duration::from_secs(5));
+        server_address.do_send(signal::Signal(signal::SignalType::Term));
+    });
+
     server.start();
 }
