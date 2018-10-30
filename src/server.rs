@@ -783,7 +783,7 @@ impl WebThingServer {
     }
 
     /// Start listening for incoming connections.
-    pub fn start(&mut self) -> actix::Addr<Syn, HttpServer<Box<HttpHandler>>> {
+    pub fn create(&mut self) -> actix::Addr<Syn, HttpServer<Box<HttpHandler>>> {
         let ip = get_ip();
 
         let port = match self.port {
@@ -983,7 +983,7 @@ impl WebThingServer {
     }
 
     /// Start the system and run the server. This is a blocking method call.
-    pub fn run(self) {
+    pub fn start(self) {
         self.system.run();
     }
 }

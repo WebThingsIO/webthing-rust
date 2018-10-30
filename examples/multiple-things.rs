@@ -332,6 +332,6 @@ fn main() {
         None,
         Box::new(Generator),
     );
+    server.create();
     server.start();
-    server.run();
 }

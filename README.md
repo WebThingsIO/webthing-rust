@@ -110,8 +110,8 @@ let mut server = WebThingServer::new(
     None,
     Box::new(Generator),
 );
+let server_addr = server.create();
 server.start();
-server.run();
 ```
 
 This will start the server, making the light available via the WoT REST API and announcing it as a discoverable resource on your local network via mDNS.
