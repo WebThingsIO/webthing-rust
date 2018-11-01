@@ -9,8 +9,9 @@ readme = "README.md"
 description = "Implementation of an HTTP Web Thing."
 
 [dependencies]
-actix = "0.5"
-actix-web = { version = "0.6", features=["alpn"] }
+actix = "0.7"
+actix-net = "0.1"
+actix-web = { version = "0.7", features=["alpn"] }
 chrono = "0.4"
 hostname = "0.1"
 libmdns = "0.2"

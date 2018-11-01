@@ -1,10 +1,11 @@
 /// Rust Web Thing server implementation.
 use actix;
 use actix::prelude::*;
+use actix_net::server::Server;
 use actix_web;
 use actix_web::error::{ErrorForbidden, ParseError};
 use actix_web::http::header;
-use actix_web::server::{HttpHandler, HttpServer};
+use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::HttpMessage;
 use actix_web::{middleware, pred, server, ws, App, Error, HttpRequest, HttpResponse, Json};
 use hostname::get_hostname;
@@ -102,7 +103,7 @@ impl AppState {
 struct HostValidator;
 
 impl middleware::Middleware<AppState> for HostValidator {
-    fn start(&self, req: &mut HttpRequest<AppState>) -> actix_web::Result<middleware::Started> {
+    fn start(&self, req: &HttpRequest<AppState>) -> actix_web::Result<middleware::Started> {
         let r = req.clone();
 
         let host = r
@@ -346,7 +347,7 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
 
 /// Handle a GET request to / when the server manages multiple things.
 #[allow(non_snake_case)]
-fn things_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
+fn things_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let mut response: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
     if let ThingsType::Multiple(things, _) = req.state().things.as_ref() {
         for thing in things.iter() {
@@ -358,7 +359,7 @@ fn things_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 
 /// Handle a GET request to /.
 #[allow(non_snake_case)]
-fn thing_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
+fn thing_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     match thing {
         None => HttpResponse::NotFound().finish(),
@@ -368,7 +369,7 @@ fn thing_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 
 /// Handle websocket on /.
 #[allow(non_snake_case)]
-fn thing_handler_WS(req: HttpRequest<AppState>) -> Result<HttpResponse, Error> {
+fn thing_handler_WS(req: &HttpRequest<AppState>) -> Result<HttpResponse, Error> {
     let thing_id = req.match_info().get("thing_id");
 
     match req.state().get_thing(thing_id) {
@@ -385,14 +386,14 @@ fn thing_handler_WS(req: HttpRequest<AppState>) -> Result<HttpResponse, Error> {
                 action_generator: req.state().get_action_generator(),
             };
             thing.write().unwrap().add_subscriber(ws.get_id());
-            ws::start(req.clone(), ws)
+            ws::start(&req, ws)
         }
     }
 }
 
 /// Handle a GET request to /properties.
 #[allow(non_snake_case)]
-fn properties_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
+fn properties_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     match thing {
         Some(thing) => {
@@ -405,7 +406,7 @@ fn properties_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 
 /// Handle a GET request to /properties/<property>.
 #[allow(non_snake_case)]
-fn property_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
+fn property_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
         return HttpResponse::NotFound().finish();
@@ -431,8 +432,7 @@ fn property_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 /// Handle a PUT request to /properties/<property>.
 #[allow(non_snake_case)]
 fn property_handler_PUT(
-    req: HttpRequest<AppState>,
-    message: Json<serde_json::Value>,
+    (req, message): (HttpRequest<AppState>, Json<serde_json::Value>),
 ) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
@@ -479,7 +479,7 @@ fn property_handler_PUT(
 
 /// Handle a GET request to /actions.
 #[allow(non_snake_case)]
-fn actions_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
+fn actions_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     match thing {
         None => HttpResponse::NotFound().finish(),
@@ -490,8 +490,7 @@ fn actions_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 /// Handle a POST request to /actions.
 #[allow(non_snake_case)]
 fn actions_handler_POST(
-    req: HttpRequest<AppState>,
-    message: Json<serde_json::Value>,
+    (req, message): (HttpRequest<AppState>, Json<serde_json::Value>),
 ) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
@@ -553,7 +552,7 @@ fn actions_handler_POST(
 
 /// Handle a GET request to /actions/<action_name>.
 #[allow(non_snake_case)]
-fn action_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
+fn action_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
         return HttpResponse::NotFound().finish();
@@ -573,8 +572,7 @@ fn action_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 /// Handle a POST request to /actions/<action_name>.
 #[allow(non_snake_case)]
 fn action_handler_POST(
-    req: HttpRequest<AppState>,
-    message: Json<serde_json::Value>,
+    (req, message): (HttpRequest<AppState>, Json<serde_json::Value>),
 ) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
@@ -644,7 +642,7 @@ fn action_handler_POST(
 
 /// Handle a GET request to /actions/<action_name>/<action_id>.
 #[allow(non_snake_case)]
-fn action_id_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
+fn action_id_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
         return HttpResponse::NotFound().finish();
@@ -675,8 +673,7 @@ fn action_id_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 /// Handle a PUT request to /actions/<action_name>/<action_id>.
 #[allow(non_snake_case)]
 fn action_id_handler_PUT(
-    req: HttpRequest<AppState>,
-    _message: Json<serde_json::Value>,
+    (req, _message): (HttpRequest<AppState>, Json<serde_json::Value>),
 ) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
@@ -689,7 +686,7 @@ fn action_id_handler_PUT(
 
 /// Handle a DELETE request to /actions/<action_name>/<action_id>.
 #[allow(non_snake_case)]
-fn action_id_handler_DELETE(req: HttpRequest<AppState>) -> HttpResponse {
+fn action_id_handler_DELETE(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
         return HttpResponse::NotFound().finish();
@@ -715,7 +712,7 @@ fn action_id_handler_DELETE(req: HttpRequest<AppState>) -> HttpResponse {
 
 /// Handle a GET request to /events.
 #[allow(non_snake_case)]
-fn events_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
+fn events_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     match thing {
         None => HttpResponse::NotFound().finish(),
@@ -725,7 +722,7 @@ fn events_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 
 /// Handle a GET request to /events/<event_name>.
 #[allow(non_snake_case)]
-fn event_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
+fn event_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     if thing.is_none() {
         return HttpResponse::NotFound().finish();
@@ -740,6 +737,98 @@ fn event_handler_GET(req: HttpRequest<AppState>) -> HttpResponse {
 
     let thing = thing.read().unwrap();
     HttpResponse::Ok().json(thing.get_event_descriptions(Some(event_name.unwrap().to_string())))
+}
+
+fn build_server(
+    single: bool,
+    things: &Arc<ThingsType>,
+    hosts: &Arc<Vec<String>>,
+    action_generator: &Arc<Box<ActionGenerator>>,
+) -> Box<(dyn HttpHandler<Task = Box<(dyn HttpHandlerTask + 'static)>> + 'static)> {
+    if single {
+        App::with_state(AppState {
+            things: things.clone(),
+            hosts: hosts.clone(),
+            action_generator: action_generator.clone(),
+        }).middleware(middleware::Logger::default())
+        .middleware(HostValidator)
+        .middleware(
+            middleware::cors::Cors::build()
+                .send_wildcard()
+                .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
+                .allowed_headers(vec![
+                    header::ORIGIN,
+                    header::CONTENT_TYPE,
+                    header::ACCEPT,
+                    header::HeaderName::from_lowercase(b"x-requested-with").unwrap(),
+                ]).finish(),
+        ).resource("/", |r| {
+            r.route()
+                .filter(pred::Get())
+                .filter(pred::Header("upgrade", "websocket"))
+                .f(thing_handler_WS);
+            r.get().f(thing_handler_GET)
+        }).resource("/properties", |r| r.get().f(properties_handler_GET))
+        .resource("/properties/{property_name}", |r| {
+            r.get().f(property_handler_GET);
+            r.put().with(property_handler_PUT);
+        }).resource("/actions", |r| {
+            r.get().f(actions_handler_GET);
+            r.post().with(actions_handler_POST);
+        }).resource("/actions/{action_name}", |r| {
+            r.get().f(action_handler_GET);
+            r.post().with(action_handler_POST);
+        }).resource("/actions/{action_name}/{action_id}", |r| {
+            r.get().f(action_id_handler_GET);
+            r.delete().f(action_id_handler_DELETE);
+            r.put().with(action_id_handler_PUT);
+        }).resource("/events", |r| r.get().f(events_handler_GET))
+        .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
+        .boxed()
+    } else {
+        App::with_state(AppState {
+            things: things.clone(),
+            hosts: hosts.clone(),
+            action_generator: action_generator.clone(),
+        }).middleware(middleware::Logger::default())
+        .middleware(HostValidator)
+        .middleware(
+            middleware::cors::Cors::build()
+                .send_wildcard()
+                .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
+                .allowed_headers(vec![
+                    header::ORIGIN,
+                    header::CONTENT_TYPE,
+                    header::ACCEPT,
+                    header::HeaderName::from_lowercase(b"x-requested-with").unwrap(),
+                ]).finish(),
+        ).resource("/", |r| r.get().f(things_handler_GET))
+        .scope("/{thing_id}", |scope| {
+            scope
+                .resource("", |r| {
+                    r.route()
+                        .filter(pred::Get())
+                        .filter(pred::Header("upgrade", "websocket"))
+                        .f(thing_handler_WS);
+                    r.get().f(thing_handler_GET)
+                }).resource("/properties", |r| r.get().f(properties_handler_GET))
+                .resource("/properties/{property_name}", |r| {
+                    r.get().f(property_handler_GET);
+                    r.put().with(property_handler_PUT);
+                }).resource("/actions", |r| {
+                    r.get().f(actions_handler_GET);
+                    r.post().with(actions_handler_POST);
+                }).resource("/actions/{action_name}", |r| {
+                    r.get().f(action_handler_GET);
+                    r.post().with(action_handler_POST);
+                }).resource("/actions/{action_name}/{action_id}", |r| {
+                    r.get().f(action_id_handler_GET);
+                    r.delete().f(action_id_handler_DELETE);
+                    r.put().with(action_id_handler_PUT);
+                }).resource("/events", |r| r.get().f(events_handler_GET))
+                .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
+        }).boxed()
+    }
 }
 
 /// Server to represent a Web Thing over HTTP.
@@ -782,7 +871,7 @@ impl WebThingServer {
     }
 
     /// Start listening for incoming connections.
-    pub fn create(&mut self) -> actix::Addr<Syn, HttpServer<Box<HttpHandler>>> {
+    pub fn create(&mut self) -> actix::Addr<Server> {
         let ip = get_ip();
 
         let port = match self.port {
@@ -843,110 +932,16 @@ impl WebThingServer {
             }
         }
 
-        let arc_things = Arc::new(self.things.clone());
-        let arc_things_clone = arc_things.clone();
-        let arc_hosts = Arc::new(hosts.clone());
-        let arc_hosts_clone = arc_hosts.clone();
-        let server = match &self.things {
-            ThingsType::Multiple(_, _) => {
-                let inner_generator_arc = self.generator_arc.clone();
-                server::new(move || {
-                    vec![
-                        App::with_state(AppState {
-                            things: arc_things_clone.clone(),
-                            hosts: arc_hosts_clone.clone(),
-                            action_generator: inner_generator_arc.clone(),
-                        }).middleware(middleware::Logger::default())
-                        .middleware(HostValidator)
-                        .middleware(
-                            middleware::cors::Cors::build()
-                                .send_wildcard()
-                                .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
-                                .allowed_headers(vec![
-                                    header::ORIGIN,
-                                    header::CONTENT_TYPE,
-                                    header::ACCEPT,
-                                    header::HeaderName::from_lowercase(b"x-requested-with")
-                                        .unwrap(),
-                                ]).finish(),
-                        ).resource("/", |r| r.get().f(things_handler_GET))
-                        .scope("/{thing_id}", |scope| {
-                            scope
-                                .resource("", |r| {
-                                    r.route()
-                                        .filter(pred::Get())
-                                        .filter(pred::Header("upgrade", "websocket"))
-                                        .f(thing_handler_WS);
-                                    r.get().f(thing_handler_GET)
-                                }).resource("/properties", |r| r.get().f(properties_handler_GET))
-                                .resource("/properties/{property_name}", |r| {
-                                    r.get().f(property_handler_GET);
-                                    r.put().with2(property_handler_PUT);
-                                }).resource("/actions", |r| {
-                                    r.get().f(actions_handler_GET);
-                                    r.post().with2(actions_handler_POST);
-                                }).resource("/actions/{action_name}", |r| {
-                                    r.get().f(action_handler_GET);
-                                    r.post().with2(action_handler_POST);
-                                }).resource("/actions/{action_name}/{action_id}", |r| {
-                                    r.get().f(action_id_handler_GET);
-                                    r.delete().f(action_id_handler_DELETE);
-                                    r.put().with2(action_id_handler_PUT);
-                                }).resource("/events", |r| r.get().f(events_handler_GET))
-                                .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
-                        }).boxed(),
-                    ]
-                })
-            }
-            ThingsType::Single(_thing) => {
-                let inner_things_arc = arc_things.clone();
-                let inner_generator_arc = self.generator_arc.clone();
-                server::new(move || {
-                    vec![
-                        App::with_state(AppState {
-                            things: inner_things_arc.clone(),
-                            hosts: arc_hosts_clone.clone(),
-                            action_generator: inner_generator_arc.clone(),
-                        }).middleware(middleware::Logger::default())
-                        .middleware(HostValidator)
-                        .middleware(
-                            middleware::cors::Cors::build()
-                                .send_wildcard()
-                                .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
-                                .allowed_headers(vec![
-                                    header::ORIGIN,
-                                    header::CONTENT_TYPE,
-                                    header::ACCEPT,
-                                    header::HeaderName::from_lowercase(b"x-requested-with")
-                                        .unwrap(),
-                                ]).finish(),
-                        ).resource("/", |r| {
-                            r.route()
-                                .filter(pred::Get())
-                                .filter(pred::Header("upgrade", "websocket"))
-                                .f(thing_handler_WS);
-                            r.get().f(thing_handler_GET)
-                        }).resource("/properties", |r| r.get().f(properties_handler_GET))
-                        .resource("/properties/{property_name}", |r| {
-                            r.get().f(property_handler_GET);
-                            r.put().with2(property_handler_PUT);
-                        }).resource("/actions", |r| {
-                            r.get().f(actions_handler_GET);
-                            r.post().with2(actions_handler_POST);
-                        }).resource("/actions/{action_name}", |r| {
-                            r.get().f(action_handler_GET);
-                            r.post().with2(action_handler_POST);
-                        }).resource("/actions/{action_name}/{action_id}", |r| {
-                            r.get().f(action_id_handler_GET);
-                            r.delete().f(action_id_handler_DELETE);
-                            r.put().with2(action_id_handler_PUT);
-                        }).resource("/events", |r| r.get().f(events_handler_GET))
-                        .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
-                        .boxed(),
-                    ]
-                })
-            }
+        let single = match &self.things {
+            ThingsType::Multiple(_, _) => false,
+            ThingsType::Single(_) => true,
         };
+        let things_arc = Arc::new(self.things.clone());
+        let hosts_arc = Arc::new(hosts.clone());
+        let generator_arc_clone = self.generator_arc.clone();
+        let server = server::new(move || {
+            build_server(single, &things_arc, &hosts_arc, &generator_arc_clone)
+        });
 
         let responder = libmdns::Responder::new().unwrap();
         responder.register("_webthing._tcp".to_owned(), name.clone(), port, &["path=/"]);
