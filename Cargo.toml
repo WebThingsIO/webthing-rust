@@ -17,7 +17,7 @@ libmdns = "0.2"
 openssl = "0.10"
 serde_json = "1.0"
 uuid = { version = "0.7", features = ["v4"] }
-valico = "2.1"
+valico = "2.2"
 
 [dev-dependencies]
 env_logger = "0.5"
