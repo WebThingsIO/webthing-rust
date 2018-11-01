@@ -1,9 +1,9 @@
 extern crate env_logger;
 #[macro_use]
 extern crate serde_json;
+extern crate actix;
 extern crate uuid;
 extern crate webthing;
-extern crate actix;
 
 use actix::actors::signal;
 use std::sync::{Arc, RwLock, Weak};

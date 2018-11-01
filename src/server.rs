@@ -464,8 +464,7 @@ fn property_handler_PUT(
             .set_property(
                 property_name.to_string(),
                 args.get(property_name).unwrap().clone(),
-            )
-            .is_ok()
+            ).is_ok()
         {
             HttpResponse::Ok().json(
                 json!({property_name: thing.get_property(property_name.to_string()).unwrap()}),
@@ -852,110 +851,99 @@ impl WebThingServer {
             ThingsType::Multiple(_, _) => {
                 let inner_generator_arc = self.generator_arc.clone();
                 server::new(move || {
-                    vec![App::with_state(AppState {
-                        things: arc_things_clone.clone(),
-                        hosts: arc_hosts_clone.clone(),
-                        action_generator: inner_generator_arc.clone(),
-                    })
-                    .middleware(middleware::Logger::default())
-                    .middleware(HostValidator)
-                    .middleware(
-                        middleware::cors::Cors::build()
-                            .send_wildcard()
-                            .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
-                            .allowed_headers(vec![
-                                header::ORIGIN,
-                                header::CONTENT_TYPE,
-                                header::ACCEPT,
-                                header::HeaderName::from_lowercase(b"x-requested-with").unwrap(),
-                            ])
-                            .finish(),
-                    )
-                    .resource("/", |r| r.get().f(things_handler_GET))
-                    .scope("/{thing_id}", |scope| {
-                        scope
-                            .resource("", |r| {
-                                r.route()
-                                    .filter(pred::Get())
-                                    .filter(pred::Header("upgrade", "websocket"))
-                                    .f(thing_handler_WS);
-                                r.get().f(thing_handler_GET)
-                            })
-                            .resource("/properties", |r| r.get().f(properties_handler_GET))
-                            .resource("/properties/{property_name}", |r| {
-                                r.get().f(property_handler_GET);
-                                r.put().with2(property_handler_PUT);
-                            })
-                            .resource("/actions", |r| {
-                                r.get().f(actions_handler_GET);
-                                r.post().with2(actions_handler_POST);
-                            })
-                            .resource("/actions/{action_name}", |r| {
-                                r.get().f(action_handler_GET);
-                                r.post().with2(action_handler_POST);
-                            })
-                            .resource("/actions/{action_name}/{action_id}", |r| {
-                                r.get().f(action_id_handler_GET);
-                                r.delete().f(action_id_handler_DELETE);
-                                r.put().with2(action_id_handler_PUT);
-                            })
-                            .resource("/events", |r| r.get().f(events_handler_GET))
-                            .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
-                    })
-                    .boxed()]
+                    vec![
+                        App::with_state(AppState {
+                            things: arc_things_clone.clone(),
+                            hosts: arc_hosts_clone.clone(),
+                            action_generator: inner_generator_arc.clone(),
+                        }).middleware(middleware::Logger::default())
+                        .middleware(HostValidator)
+                        .middleware(
+                            middleware::cors::Cors::build()
+                                .send_wildcard()
+                                .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
+                                .allowed_headers(vec![
+                                    header::ORIGIN,
+                                    header::CONTENT_TYPE,
+                                    header::ACCEPT,
+                                    header::HeaderName::from_lowercase(b"x-requested-with")
+                                        .unwrap(),
+                                ]).finish(),
+                        ).resource("/", |r| r.get().f(things_handler_GET))
+                        .scope("/{thing_id}", |scope| {
+                            scope
+                                .resource("", |r| {
+                                    r.route()
+                                        .filter(pred::Get())
+                                        .filter(pred::Header("upgrade", "websocket"))
+                                        .f(thing_handler_WS);
+                                    r.get().f(thing_handler_GET)
+                                }).resource("/properties", |r| r.get().f(properties_handler_GET))
+                                .resource("/properties/{property_name}", |r| {
+                                    r.get().f(property_handler_GET);
+                                    r.put().with2(property_handler_PUT);
+                                }).resource("/actions", |r| {
+                                    r.get().f(actions_handler_GET);
+                                    r.post().with2(actions_handler_POST);
+                                }).resource("/actions/{action_name}", |r| {
+                                    r.get().f(action_handler_GET);
+                                    r.post().with2(action_handler_POST);
+                                }).resource("/actions/{action_name}/{action_id}", |r| {
+                                    r.get().f(action_id_handler_GET);
+                                    r.delete().f(action_id_handler_DELETE);
+                                    r.put().with2(action_id_handler_PUT);
+                                }).resource("/events", |r| r.get().f(events_handler_GET))
+                                .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
+                        }).boxed(),
+                    ]
                 })
             }
             ThingsType::Single(_thing) => {
                 let inner_things_arc = arc_things.clone();
                 let inner_generator_arc = self.generator_arc.clone();
                 server::new(move || {
-                    vec![App::with_state(AppState {
-                        things: inner_things_arc.clone(),
-                        hosts: arc_hosts_clone.clone(),
-                        action_generator: inner_generator_arc.clone(),
-                    })
-                    .middleware(middleware::Logger::default())
-                    .middleware(HostValidator)
-                    .middleware(
-                        middleware::cors::Cors::build()
-                            .send_wildcard()
-                            .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
-                            .allowed_headers(vec![
-                                header::ORIGIN,
-                                header::CONTENT_TYPE,
-                                header::ACCEPT,
-                                header::HeaderName::from_lowercase(b"x-requested-with").unwrap(),
-                            ])
-                            .finish(),
-                    )
-                    .resource("/", |r| {
-                        r.route()
-                            .filter(pred::Get())
-                            .filter(pred::Header("upgrade", "websocket"))
-                            .f(thing_handler_WS);
-                        r.get().f(thing_handler_GET)
-                    })
-                    .resource("/properties", |r| r.get().f(properties_handler_GET))
-                    .resource("/properties/{property_name}", |r| {
-                        r.get().f(property_handler_GET);
-                        r.put().with2(property_handler_PUT);
-                    })
-                    .resource("/actions", |r| {
-                        r.get().f(actions_handler_GET);
-                        r.post().with2(actions_handler_POST);
-                    })
-                    .resource("/actions/{action_name}", |r| {
-                        r.get().f(action_handler_GET);
-                        r.post().with2(action_handler_POST);
-                    })
-                    .resource("/actions/{action_name}/{action_id}", |r| {
-                        r.get().f(action_id_handler_GET);
-                        r.delete().f(action_id_handler_DELETE);
-                        r.put().with2(action_id_handler_PUT);
-                    })
-                    .resource("/events", |r| r.get().f(events_handler_GET))
-                    .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
-                    .boxed()]
+                    vec![
+                        App::with_state(AppState {
+                            things: inner_things_arc.clone(),
+                            hosts: arc_hosts_clone.clone(),
+                            action_generator: inner_generator_arc.clone(),
+                        }).middleware(middleware::Logger::default())
+                        .middleware(HostValidator)
+                        .middleware(
+                            middleware::cors::Cors::build()
+                                .send_wildcard()
+                                .allowed_methods(vec!["GET", "HEAD", "PUT", "POST", "DELETE"])
+                                .allowed_headers(vec![
+                                    header::ORIGIN,
+                                    header::CONTENT_TYPE,
+                                    header::ACCEPT,
+                                    header::HeaderName::from_lowercase(b"x-requested-with")
+                                        .unwrap(),
+                                ]).finish(),
+                        ).resource("/", |r| {
+                            r.route()
+                                .filter(pred::Get())
+                                .filter(pred::Header("upgrade", "websocket"))
+                                .f(thing_handler_WS);
+                            r.get().f(thing_handler_GET)
+                        }).resource("/properties", |r| r.get().f(properties_handler_GET))
+                        .resource("/properties/{property_name}", |r| {
+                            r.get().f(property_handler_GET);
+                            r.put().with2(property_handler_PUT);
+                        }).resource("/actions", |r| {
+                            r.get().f(actions_handler_GET);
+                            r.post().with2(actions_handler_POST);
+                        }).resource("/actions/{action_name}", |r| {
+                            r.get().f(action_handler_GET);
+                            r.post().with2(action_handler_POST);
+                        }).resource("/actions/{action_name}/{action_id}", |r| {
+                            r.get().f(action_id_handler_GET);
+                            r.delete().f(action_id_handler_DELETE);
+                            r.put().with2(action_id_handler_PUT);
+                        }).resource("/events", |r| r.get().f(events_handler_GET))
+                        .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
+                        .boxed(),
+                    ]
                 })
             }
         };
