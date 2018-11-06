@@ -12,7 +12,7 @@ If you're using `Cargo`, just add `webthing` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-webthing = "0.8"
+webthing = "0.9"
 ```
 
 # Example
