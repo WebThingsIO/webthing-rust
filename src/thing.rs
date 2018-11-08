@@ -29,9 +29,6 @@ pub trait Thing: Send + Sync {
     /// Get this thing's href prefix, i.e. /0.
     fn get_href_prefix(&self) -> String;
 
-    /// Get the websocket href.
-    fn get_ws_href(&self) -> Option<String>;
-
     /// Get the UI href.
     fn get_ui_href(&self) -> Option<String>;
 
@@ -39,11 +36,6 @@ pub trait Thing: Send + Sync {
     ///
     /// prefix -- the prefix
     fn set_href_prefix(&mut self, prefix: String);
-
-    /// Set the href of this thing's websocket.
-    ///
-    /// href -- the href
-    fn set_ws_href(&mut self, href: String);
 
     /// Set the href of this thing's custom UI.
     ///
@@ -288,7 +280,6 @@ pub struct BaseThing {
     events: Vec<Box<Event>>,
     subscribers: HashMap<String, Vec<String>>,
     href_prefix: String,
-    ws_href: Option<String>,
     ui_href: Option<String>,
 }
 
@@ -321,7 +312,6 @@ impl BaseThing {
             events: Vec::new(),
             subscribers: HashMap::new(),
             href_prefix: "".to_owned(),
-            ws_href: None,
             ui_href: None,
         }
     }
@@ -368,14 +358,6 @@ impl Thing for BaseThing {
             json!(format!("{}/events", self.get_href_prefix())),
         );
         links.push(events_link);
-
-        let ws_href = self.get_ws_href();
-        if ws_href.is_some() {
-            let mut ws_link = serde_json::Map::new();
-            ws_link.insert("rel".to_owned(), json!("alternate"));
-            ws_link.insert("href".to_owned(), json!(ws_href.unwrap()));
-            links.push(ws_link);
-        }
 
         let ui_href = self.get_ui_href();
         if ui_href.is_some() {
@@ -433,11 +415,6 @@ impl Thing for BaseThing {
         self.href_prefix.clone()
     }
 
-    /// Get the websocket href.
-    fn get_ws_href(&self) -> Option<String> {
-        self.ws_href.clone()
-    }
-
     /// Get the UI href.
     fn get_ui_href(&self) -> Option<String> {
         self.ui_href.clone()
@@ -466,13 +443,6 @@ impl Thing for BaseThing {
                 action.write().unwrap().set_href_prefix(prefix.clone());
             }
         }
-    }
-
-    /// Set the href of this thing's websocket.
-    ///
-    /// href -- the href
-    fn set_ws_href(&mut self, href: String) {
-        self.ws_href = Some(href);
     }
 
     /// Set the href of this thing's custom UI.

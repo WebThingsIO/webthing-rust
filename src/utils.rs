@@ -1,5 +1,7 @@
 use chrono::Utc;
-use std::net::UdpSocket;
+use get_if_addrs;
+use std::collections::HashSet;
+use std::net::IpAddr;
 
 /// Get the current time.
 ///
@@ -9,16 +11,20 @@ pub fn timestamp() -> String {
     now.format("%Y-%m-%dT%H:%M:%S+00:00").to_string()
 }
 
-/// Get the default local IP address.
-///
-/// From: https://stackoverflow.com/a/28950776
-pub fn get_ip() -> String {
-    let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-    match socket.connect("10.255.255.255:1") {
-        Ok(_) => match socket.local_addr() {
-            Ok(addr) => addr.ip().to_string(),
-            Err(_) => "127.0.0.1".to_string(),
-        },
-        Err(_) => "127.0.0.1".to_string(),
+/// Get all IP addresses
+pub fn get_addresses() -> Vec<String> {
+    let mut addresses = HashSet::new();
+
+    for iface in get_if_addrs::get_if_addrs().unwrap() {
+        match iface.ip() {
+            IpAddr::V4(addr) => addresses.insert(addr.to_string()),
+            IpAddr::V6(addr) => addresses.insert(format!("[{}]", addr.to_string())),
+        };
     }
+
+    let mut results = Vec::new();
+    addresses.iter().for_each(|a| results.push(a.clone()));
+    results.sort_unstable();
+
+    results
 }

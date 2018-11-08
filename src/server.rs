@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 use super::action::Action;
 use super::thing::Thing;
-use super::utils::get_ip;
+use super::utils::get_addresses;
 
 /// Represents the things managed by the server.
 #[derive(Clone)]
@@ -349,9 +349,39 @@ impl StreamHandler<ws::Message, ws::ProtocolError> for ThingWebSocket {
 #[allow(non_snake_case)]
 fn things_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let mut response: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
+
+    // The host header is already checked by HostValidator, so the unwrapping is safe here.
+    let host = req.headers().get("Host").unwrap().to_str().unwrap();
+    let connection = req.connection_info();
+    let scheme = connection.scheme();
+    let ws_href = format!(
+        "{}://{}",
+        if scheme == "https" { "wss" } else { "ws" },
+        host
+    );
+
     if let ThingsType::Multiple(things, _) = req.state().things.as_ref() {
         for thing in things.iter() {
-            response.push(thing.read().unwrap().as_thing_description());
+            let thing = thing.read().unwrap();
+
+            let mut link = serde_json::Map::new();
+            link.insert("rel".to_owned(), json!("alternate"));
+            link.insert(
+                "href".to_owned(),
+                json!(format!("{}{}", ws_href, thing.get_href())),
+            );
+
+            let mut description = thing.as_thing_description().clone();
+            {
+                let links = description
+                    .get_mut("links")
+                    .unwrap()
+                    .as_array_mut()
+                    .unwrap();
+                links.push(json!(link));
+            }
+
+            response.push(description);
         }
     }
     HttpResponse::Ok().json(response)
@@ -363,7 +393,36 @@ fn thing_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = req.state().get_thing(req.match_info().get("thing_id"));
     match thing {
         None => HttpResponse::NotFound().finish(),
-        Some(thing) => HttpResponse::Ok().json(thing.read().unwrap().as_thing_description()),
+        Some(thing) => {
+            let thing = thing.read().unwrap();
+
+            // The host header is already checked by HostValidator, so the unwrapping is safe here.
+            let host = req.headers().get("Host").unwrap().to_str().unwrap();
+            let connection = req.connection_info();
+            let scheme = connection.scheme();
+            let ws_href = format!(
+                "{}://{}{}",
+                if scheme == "https" { "wss" } else { "ws" },
+                host,
+                thing.get_href()
+            );
+
+            let mut link = serde_json::Map::new();
+            link.insert("rel".to_owned(), json!("alternate"));
+            link.insert("href".to_owned(), json!(ws_href));
+
+            let mut description = thing.as_thing_description().clone();
+            {
+                let links = description
+                    .get_mut("links")
+                    .unwrap()
+                    .as_array_mut()
+                    .unwrap();
+                links.push(json!(link));
+            }
+
+            HttpResponse::Ok().json(description)
+        }
     }
 }
 
@@ -872,20 +931,14 @@ impl WebThingServer {
 
     /// Start listening for incoming connections.
     pub fn create(&mut self) -> actix::Addr<Server> {
-        let ip = get_ip();
-
         let port = match self.port {
             Some(p) => p,
             None => 80,
         };
 
         let mut hosts = vec![
-            "127.0.0.1".to_owned(),
-            format!("127.0.0.1:{}", port),
             "localhost".to_owned(),
             format!("localhost:{}", port),
-            ip.clone(),
-            format!("{}:{}", ip, port),
         ];
 
         let system_hostname = get_hostname();
@@ -893,6 +946,11 @@ impl WebThingServer {
             let name = system_hostname.unwrap().to_lowercase();;
             hosts.push(format!("{}.local", name));
             hosts.push(format!("{}.local:{}", name, port));
+        }
+
+        for address in get_addresses() {
+            hosts.push(address.clone());
+            hosts.push(format!("{}:{}", address, port));
         }
 
         if self.hostname.is_some() {
@@ -906,30 +964,14 @@ impl WebThingServer {
             ThingsType::Multiple(_, name) => name.to_owned(),
         };
 
-        let ws_protocol = match self.ssl_options {
-            Some(_) => "wss",
-            None => "ws",
-        };
-
-        let ws_host = match self.hostname {
-            Some(ref hostname) => hostname.clone(),
-            None => ip,
-        };
-
         match &mut self.things {
             ThingsType::Multiple(ref mut things, _) => {
                 for (idx, thing) in things.iter_mut().enumerate() {
                     let mut thing = thing.write().unwrap();
                     thing.set_href_prefix(format!("/{}", idx));
-                    thing.set_ws_href(format!("{}://{}:{}/{}", ws_protocol, ws_host, port, idx));
                 }
             }
-            ThingsType::Single(thing) => {
-                thing
-                    .write()
-                    .unwrap()
-                    .set_ws_href(format!("{}://{}:{}", ws_protocol, ws_host, port));
-            }
+            ThingsType::Single(_) => {}
         }
 
         let single = match &self.things {
