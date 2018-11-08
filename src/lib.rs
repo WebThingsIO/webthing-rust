@@ -6,6 +6,7 @@ extern crate actix;
 extern crate actix_net;
 extern crate actix_web;
 extern crate chrono;
+extern crate get_if_addrs;
 extern crate hostname;
 extern crate libmdns;
 extern crate openssl;
