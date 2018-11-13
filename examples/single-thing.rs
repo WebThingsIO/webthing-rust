@@ -183,7 +183,7 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     let brightness_description = json!({
         "@type": "BrightnessProperty",
         "label": "Brightness",
-        "type": "number",
+        "type": "integer",
         "description": "The level of light from 0-100",
         "minimum": 0,
         "maximum": 100,
@@ -208,13 +208,13 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
             ],
             "properties": {
                 "brightness": {
-                    "type": "number",
+                    "type": "integer",
                     "minimum": 0,
                     "maximum": 100,
                     "unit": "percent"
                 },
                 "duration": {
-                    "type": "number",
+                    "type": "integer",
                     "minimum": 1,
                     "unit": "milliseconds"
                 }
@@ -227,7 +227,7 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     let overheated_metadata = json!({
         "description": "The lamp has exceeded its safe operating temperature",
         "type": "number",
-        "unit": "celsius"
+        "unit": "degree celsius"
     });
     let overheated_metadata = overheated_metadata.as_object().unwrap().clone();
     thing.add_available_event("overheated".to_owned(), overheated_metadata);
