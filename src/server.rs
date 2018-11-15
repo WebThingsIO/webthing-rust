@@ -936,10 +936,7 @@ impl WebThingServer {
             None => 80,
         };
 
-        let mut hosts = vec![
-            "localhost".to_owned(),
-            format!("localhost:{}", port),
-        ];
+        let mut hosts = vec!["localhost".to_owned(), format!("localhost:{}", port)];
 
         let system_hostname = get_hostname();
         if system_hostname.is_some() {
