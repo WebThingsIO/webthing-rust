@@ -32,7 +32,7 @@ pub trait Property: Send + Sync {
                 "number" => if !value.is_number() {
                     return Err("Value must be a number");
                 },
-                "integer" => if !value.is_u64() {
+                "integer" => if !value.is_i64() {
                     return Err("Value must be an integer");
                 },
                 "string" => if !value.is_string() {
