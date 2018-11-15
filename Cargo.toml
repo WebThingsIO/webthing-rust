@@ -10,7 +10,7 @@ description = "Implementation of an HTTP Web Thing."
 
 [dependencies]
 actix = "0.7"
-actix-net = "0.1"
+actix-net = "0.2"
 actix-web = { version = "0.7", features=["alpn"] }
 chrono = "0.4"
 get_if_addrs = "0.5"
