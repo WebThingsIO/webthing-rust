@@ -1,5 +1,6 @@
 use serde_json;
 use std::marker::{Send, Sync};
+use valico::json_schema;
 
 /// Used to forward a new property value to the physical/virtual device.
 pub trait ValueForwarder: Send + Sync {
@@ -9,38 +10,14 @@ pub trait ValueForwarder: Send + Sync {
 
 /// High-level Property trait.
 pub trait Property: Send + Sync {
-    /// Determine whether or not the property is read-only.
+    /// Validate new property value before setting it.
     ///
-    /// Returns a boolean indicating read-only status.
+    /// Returns a result indicating validity.
     fn validate_value(&self, value: &serde_json::Value) -> Result<(), &'static str> {
-        let description = self.get_metadata();
-
-        if description.contains_key("type") {
-            match description.get("type").unwrap().as_str().unwrap() {
-                "null" => if !value.is_null() {
-                    return Err("Value must be null");
-                },
-                "boolean" => if !value.is_boolean() {
-                    return Err("Value must be a boolean");
-                },
-                "object" => if !value.is_object() {
-                    return Err("Value must be an object");
-                },
-                "array" => if !value.is_array() {
-                    return Err("Value must be an array");
-                },
-                "number" => if !value.is_number() {
-                    return Err("Value must be a number");
-                },
-                "integer" => if !value.is_i64() {
-                    return Err("Value must be an integer");
-                },
-                "string" => if !value.is_string() {
-                    return Err("Value must be a string");
-                },
-                _ => {}
-            }
-        }
+        let mut description = self.get_metadata();
+        description.remove("@type");
+        description.remove("unit");
+        description.remove("label");
 
         if description.contains_key("readOnly") {
             let b = description.get("readOnly").unwrap().as_bool();
@@ -49,30 +26,17 @@ pub trait Property: Send + Sync {
             }
         }
 
-        if description.contains_key("minimum") {
-            let minimum = description.get("minimum").unwrap().as_f64().unwrap();
-            let v = value.as_f64().unwrap();
-            if v < minimum {
-                return Err("Value less than minimum");
+        let mut scope = json_schema::Scope::new();
+        match scope.compile_and_return(json!(description), true) {
+            Ok(validator) => {
+                if validator.validate(value).is_valid() {
+                    Ok(())
+                } else {
+                    Err("Invalid property value")
+                }
             }
+            Err(_) => Err("Invalid property schema"),
         }
-
-        if description.contains_key("maximum") {
-            let maximum = description.get("maximum").unwrap().as_f64().unwrap();
-            let v = value.as_f64().unwrap();
-            if v > maximum {
-                return Err("Value greater than maximum");
-            }
-        }
-
-        if description.contains_key("enum") && description.contains_key("type") {
-            let e = description.get("enum").unwrap().as_array().unwrap();
-            if e.len() > 0 && !e.contains(&value) {
-                return Err("Invalid enum value");
-            }
-        }
-
-        Ok(())
     }
 
     /// Get the property description.
