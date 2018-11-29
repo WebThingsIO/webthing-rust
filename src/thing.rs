@@ -372,14 +372,34 @@ impl Thing for BaseThing {
 
         let mut actions = serde_json::Map::new();
         for (name, action) in self.available_actions.iter() {
-            actions.insert(name.to_string(), json!(action.get_metadata()));
+            let mut metadata = action.get_metadata().clone();
+            metadata.insert(
+                "links".to_string(),
+                json!([
+                    {
+                        "rel": "action",
+                        "href": format!("{}/actions/{}", self.get_href_prefix(), name),
+                    },
+                ]),
+            );
+            actions.insert(name.to_string(), json!(metadata));
         }
 
         description.insert("actions".to_owned(), json!(actions));
 
         let mut events = serde_json::Map::new();
         for (name, event) in self.available_events.iter() {
-            events.insert(name.to_string(), json!(event.get_metadata()));
+            let mut metadata = event.get_metadata().clone();
+            metadata.insert(
+                "links".to_string(),
+                json!([
+                    {
+                        "rel": "event",
+                        "href": format!("{}/events/{}", self.get_href_prefix(), name),
+                    },
+                ]),
+            );
+            events.insert(name.to_string(), json!(metadata));
         }
 
         description.insert("events".to_owned(), json!(events));
@@ -425,14 +445,6 @@ impl Thing for BaseThing {
     /// prefix -- the prefix
     fn set_href_prefix(&mut self, prefix: String) {
         self.href_prefix = prefix.clone();
-
-        for action in self.available_actions.values_mut() {
-            action.set_href_prefix(prefix.clone());
-        }
-
-        for event in self.available_events.values_mut() {
-            event.set_href_prefix(prefix.clone());
-        }
 
         for property in self.properties.values_mut() {
             property.set_href_prefix(prefix.clone());
@@ -646,10 +658,8 @@ impl Thing for BaseThing {
     fn add_available_event(
         &mut self,
         name: String,
-        mut metadata: serde_json::Map<String, serde_json::Value>,
+        metadata: serde_json::Map<String, serde_json::Value>,
     ) {
-        metadata.insert("href".to_owned(), json!(format!("/events/{}", name)));
-
         let event = AvailableEvent::new(metadata);
         self.available_events.insert(name, event);
     }
@@ -716,10 +726,8 @@ impl Thing for BaseThing {
     fn add_available_action(
         &mut self,
         name: String,
-        mut metadata: serde_json::Map<String, serde_json::Value>,
+        metadata: serde_json::Map<String, serde_json::Value>,
     ) {
-        metadata.insert("href".to_owned(), json!(format!("/actions/{}", name)));
-
         let action = AvailableAction::new(metadata);
         self.available_actions.insert(name.clone(), action);
         self.actions.insert(name, Vec::new());
@@ -905,18 +913,6 @@ impl AvailableAction {
         AvailableAction { metadata: metadata }
     }
 
-    /// Set the prefix of this action's href.
-    ///
-    /// prefix -- the prefix
-    fn set_href_prefix(&mut self, prefix: String) {
-        let href = format!(
-            "{}{}",
-            prefix,
-            self.metadata.get("href").unwrap().as_str().unwrap()
-        );
-        self.metadata.insert("href".to_owned(), json!(href));
-    }
-
     /// Get the action metadata.
     fn get_metadata(&self) -> &serde_json::Map<String, serde_json::Value> {
         &self.metadata
@@ -964,18 +960,6 @@ impl AvailableEvent {
             metadata: metadata,
             subscribers: HashMap::new(),
         }
-    }
-
-    /// Set the prefix of this event's href.
-    ///
-    /// prefix -- the prefix
-    fn set_href_prefix(&mut self, prefix: String) {
-        let href = format!(
-            "{}{}",
-            prefix,
-            self.metadata.get("href").unwrap().as_str().unwrap()
-        );
-        self.metadata.insert("href".to_owned(), json!(href));
     }
 
     /// Get the event metadata.
