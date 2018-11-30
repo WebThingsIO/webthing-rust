@@ -44,7 +44,15 @@ pub trait Property: Send + Sync {
     /// Returns a JSON value describing the property.
     fn as_property_description(&self) -> serde_json::Map<String, serde_json::Value> {
         let mut description = self.get_metadata().clone();
-        description.insert("href".to_string(), json!(self.get_href()));
+        description.insert(
+            "links".to_string(),
+            json!([
+                {
+                    "rel": "property",
+                    "href": self.get_href(),
+                },
+            ]),
+        );
         description
     }
 
