@@ -17,6 +17,7 @@ pub trait Property: Send + Sync {
         let mut description = self.get_metadata();
         description.remove("@type");
         description.remove("unit");
+        description.remove("title");
 
         if description.contains_key("readOnly") {
             let b = description.get("readOnly").unwrap().as_bool();
