@@ -53,7 +53,7 @@ impl ValueForwarder for OnValueForwarder {
 
 let on_description = json!({
     "@type": "OnProperty",
-    "label": "On/Off",
+    "title": "On/Off",
     "type": "boolean",
     "description": "Whether the lamp is turned on"
 });
@@ -80,7 +80,7 @@ impl ValueForwarder for BrightnessValueForwarder {
 
 let brightness_description = json!({
     "@type": "BrightnessProperty",
-    "label": "Brightness",
+    "title": "Brightness",
     "type": "number",
     "description": "The level of light from 0-100",
     "minimum": 0,
@@ -139,7 +139,7 @@ Then we create and add the appropriate property:
     ```rust
     let level_description = json!({
         "@type": "LevelProperty",
-        "label": "Humidity",
+        "title": "Humidity",
         "type": "number",
         "description": "The current humidity in %",
         "minimum": 0,

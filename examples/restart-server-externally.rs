@@ -170,7 +170,7 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
 
     let on_description = json!({
         "@type": "OnOffProperty",
-        "label": "On/Off",
+        "title": "On/Off",
         "type": "boolean",
         "description": "Whether the lamp is turned on"
     });
@@ -184,7 +184,7 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
 
     let brightness_description = json!({
         "@type": "BrightnessProperty",
-        "label": "Brightness",
+        "title": "Brightness",
         "type": "integer",
         "description": "The level of light from 0-100",
         "minimum": 0,
@@ -200,7 +200,7 @@ fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     )));
 
     let fade_metadata = json!({
-        "label": "Fade",
+        "title": "Fade",
         "description": "Fade the lamp to a given level",
         "input": {
             "type": "object",
