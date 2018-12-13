@@ -2,7 +2,7 @@
 
 ## [0.10.1] - 2018-12-13
 ### Changed
-- Properties should now use `title` rather than `label`.
+- Properties, actions, and events should now use `title` rather than `label`.
 
 ## [0.10.0] - 2018-11-30
 ### Changed
