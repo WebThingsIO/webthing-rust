@@ -9,6 +9,7 @@ extern crate chrono;
 extern crate get_if_addrs;
 extern crate hostname;
 extern crate libmdns;
+#[cfg(feature = "ssl")]
 extern crate openssl;
 #[macro_use]
 extern crate serde_json;

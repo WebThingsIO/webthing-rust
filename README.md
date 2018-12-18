@@ -15,6 +15,10 @@ If you're using `Cargo`, just add `webthing` to your `Cargo.toml`:
 webthing = "0.9"
 ```
 
+## TLS Support
+
+If you need TLS support for the server, you'll need to compile with the `ssl` feature set.
+
 # Example
 
 In this example we will set up a dimmable light and a humidity sensor (both using fake data, of course). Both working examples can be found in [here](https://github.com/mozilla-iot/webthing-rust/tree/master/examples).

@@ -13,6 +13,7 @@ cd ..
 
 # build library
 cargo build
+cargo build --features ssl
 
 # clone the webthing-tester
 git clone https://github.com/mozilla-iot/webthing-tester
