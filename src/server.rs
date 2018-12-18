@@ -10,6 +10,7 @@ use actix_web::HttpMessage;
 use actix_web::{middleware, pred, server, ws, App, Error, HttpRequest, HttpResponse, Json};
 use hostname::get_hostname;
 use libmdns;
+#[cfg(feature = "ssl")]
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
 use std::marker::{Send, Sync};
@@ -891,6 +892,7 @@ fn build_server(
 }
 
 /// Server to represent a Web Thing over HTTP.
+#[allow(dead_code)]
 pub struct WebThingServer {
     things: ThingsType,
     port: Option<u16>,
@@ -985,6 +987,7 @@ impl WebThingServer {
         let responder = libmdns::Responder::new().unwrap();
         responder.register("_webthing._tcp".to_owned(), name.clone(), port, &["path=/"]);
 
+        #[cfg(feature = "ssl")]
         match self.ssl_options {
             Some(ref o) => {
                 let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
@@ -1001,6 +1004,14 @@ impl WebThingServer {
                 .bind(format!("0.0.0.0:{}", port))
                 .expect("Failed to bind socket")
                 .start(),
+        }
+
+        #[cfg(not(feature = "ssl"))]
+        {
+            server
+                .bind(format!("0.0.0.0:{}", port))
+                .expect("Failed to bind socket")
+                .start()
         }
     }
 
