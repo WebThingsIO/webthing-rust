@@ -11,7 +11,7 @@ description = "Implementation of an HTTP Web Thing."
 [dependencies]
 actix = "0.7"
 actix-net = "0.2"
-actix-web = "0.7"
+actix-web = { version = "0.7", default-features = false, features = ["brotli", "flate2-c", "cell"]}
 chrono = "0.4"
 get_if_addrs = "0.5"
 hostname = "0.1"
