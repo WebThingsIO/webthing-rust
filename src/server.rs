@@ -524,7 +524,8 @@ fn property_handler_PUT(
             .set_property(
                 property_name.to_string(),
                 args.get(property_name).unwrap().clone(),
-            ).is_ok()
+            )
+            .is_ok()
         {
             HttpResponse::Ok().json(
                 json!({property_name: thing.get_property(property_name.to_string()).unwrap()}),
@@ -810,7 +811,8 @@ fn build_server(
             things: things.clone(),
             hosts: hosts.clone(),
             action_generator: action_generator.clone(),
-        }).middleware(middleware::Logger::default())
+        })
+        .middleware(middleware::Logger::default())
         .middleware(HostValidator)
         .middleware(
             middleware::cors::Cors::build()
@@ -821,28 +823,35 @@ fn build_server(
                     header::CONTENT_TYPE,
                     header::ACCEPT,
                     header::HeaderName::from_lowercase(b"x-requested-with").unwrap(),
-                ]).finish(),
-        ).resource("/", |r| {
+                ])
+                .finish(),
+        )
+        .resource("/", |r| {
             r.route()
                 .filter(pred::Get())
                 .filter(pred::Header("upgrade", "websocket"))
                 .f(thing_handler_WS);
             r.get().f(thing_handler_GET)
-        }).resource("/properties", |r| r.get().f(properties_handler_GET))
+        })
+        .resource("/properties", |r| r.get().f(properties_handler_GET))
         .resource("/properties/{property_name}", |r| {
             r.get().f(property_handler_GET);
             r.put().with(property_handler_PUT);
-        }).resource("/actions", |r| {
+        })
+        .resource("/actions", |r| {
             r.get().f(actions_handler_GET);
             r.post().with(actions_handler_POST);
-        }).resource("/actions/{action_name}", |r| {
+        })
+        .resource("/actions/{action_name}", |r| {
             r.get().f(action_handler_GET);
             r.post().with(action_handler_POST);
-        }).resource("/actions/{action_name}/{action_id}", |r| {
+        })
+        .resource("/actions/{action_name}/{action_id}", |r| {
             r.get().f(action_id_handler_GET);
             r.delete().f(action_id_handler_DELETE);
             r.put().with(action_id_handler_PUT);
-        }).resource("/events", |r| r.get().f(events_handler_GET))
+        })
+        .resource("/events", |r| r.get().f(events_handler_GET))
         .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
         .boxed()
     } else {
@@ -850,7 +859,8 @@ fn build_server(
             things: things.clone(),
             hosts: hosts.clone(),
             action_generator: action_generator.clone(),
-        }).middleware(middleware::Logger::default())
+        })
+        .middleware(middleware::Logger::default())
         .middleware(HostValidator)
         .middleware(
             middleware::cors::Cors::build()
@@ -861,8 +871,10 @@ fn build_server(
                     header::CONTENT_TYPE,
                     header::ACCEPT,
                     header::HeaderName::from_lowercase(b"x-requested-with").unwrap(),
-                ]).finish(),
-        ).resource("/", |r| r.get().f(things_handler_GET))
+                ])
+                .finish(),
+        )
+        .resource("/", |r| r.get().f(things_handler_GET))
         .scope("/{thing_id}", |scope| {
             scope
                 .resource("", |r| {
@@ -871,23 +883,29 @@ fn build_server(
                         .filter(pred::Header("upgrade", "websocket"))
                         .f(thing_handler_WS);
                     r.get().f(thing_handler_GET)
-                }).resource("/properties", |r| r.get().f(properties_handler_GET))
+                })
+                .resource("/properties", |r| r.get().f(properties_handler_GET))
                 .resource("/properties/{property_name}", |r| {
                     r.get().f(property_handler_GET);
                     r.put().with(property_handler_PUT);
-                }).resource("/actions", |r| {
+                })
+                .resource("/actions", |r| {
                     r.get().f(actions_handler_GET);
                     r.post().with(actions_handler_POST);
-                }).resource("/actions/{action_name}", |r| {
+                })
+                .resource("/actions/{action_name}", |r| {
                     r.get().f(action_handler_GET);
                     r.post().with(action_handler_POST);
-                }).resource("/actions/{action_name}/{action_id}", |r| {
+                })
+                .resource("/actions/{action_name}/{action_id}", |r| {
                     r.get().f(action_id_handler_GET);
                     r.delete().f(action_id_handler_DELETE);
                     r.put().with(action_id_handler_PUT);
-                }).resource("/events", |r| r.get().f(events_handler_GET))
+                })
+                .resource("/events", |r| r.get().f(events_handler_GET))
                 .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
-        }).boxed()
+        })
+        .boxed()
     }
 }
 

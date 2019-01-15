@@ -1,5 +1,9 @@
 # webthing Changelog
 
+## [Unreleased]
+### Fixed
+- Properties could not include a custom `links` array at initialization.
+
 ## [0.10.3] - 2018-12-18
 ### Fixed
 - SSL feature compilation.

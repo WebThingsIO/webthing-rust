@@ -787,7 +787,8 @@ impl Thing for BaseThing {
             "data": {
                 name: value
             }
-        }).to_string();
+        })
+        .to_string();
 
         self.subscribers
             .values_mut()
@@ -801,7 +802,8 @@ impl Thing for BaseThing {
         let message = json!({
             "messageType": "actionStatus",
             "data": action
-        }).to_string();
+        })
+        .to_string();
 
         self.subscribers
             .values_mut()
@@ -820,7 +822,8 @@ impl Thing for BaseThing {
         let message = json!({
             "messageType": "event",
             "data": event,
-        }).to_string();
+        })
+        .to_string();
 
         self.available_events
             .get_mut(&name)
