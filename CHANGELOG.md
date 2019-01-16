@@ -1,6 +1,6 @@
 # webthing Changelog
 
-## [Unreleased]
+## [0.11.0] - 2019-01-16
 ### Changed
 - `WebThingServer::new()` can now take a configuration function which can add additional API routes.
 ### Fixed
@@ -22,7 +22,8 @@
 ### Changed
 - Property, Action, and Event description now use `links` rather than `href`. - [Spec PR](https://github.com/mozilla-iot/wot/pull/119)
 
-[Unreleased]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.3...HEAD
+[Unreleased]: https://github.com/mozilla-iot/webthing-rust/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.3...v0.11.0
 [0.10.3]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.0...v0.10.1
