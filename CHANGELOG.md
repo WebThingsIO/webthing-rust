@@ -1,6 +1,8 @@
 # webthing Changelog
 
 ## [Unreleased]
+### Changed
+- `WebThingServer::new()` can now take a configuration function which can add additional API routes.
 ### Fixed
 - Properties could not include a custom `links` array at initialization.
 
