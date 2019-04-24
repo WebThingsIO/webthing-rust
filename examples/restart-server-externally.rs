@@ -249,6 +249,8 @@ fn main() {
         None,
         None,
         Box::new(Generator),
+        None,
+        None,
     );
     let server_address = server.create();
 

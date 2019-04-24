@@ -248,6 +248,7 @@ fn main() {
         None,
         Box::new(Generator),
         None,
+        None,
     );
     server.create();
     server.start();
