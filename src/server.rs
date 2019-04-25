@@ -829,39 +829,58 @@ fn build_app(
 fn build_server(
     app: App<AppState>,
     single: bool,
+    base_path: String,
 ) -> Box<(dyn HttpHandler<Task = Box<(dyn HttpHandlerTask + 'static)>> + 'static)> {
     if single {
-        app.resource("/", |r| {
+        let root = if base_path == "" {
+            "/".to_owned()
+        } else {
+            base_path.clone()
+        };
+
+        app.resource(&root, |r| {
             r.route()
                 .filter(pred::Get())
                 .filter(pred::Header("upgrade", "websocket"))
                 .f(thing_handler_WS);
             r.get().f(thing_handler_GET)
         })
-        .resource("/properties", |r| r.get().f(properties_handler_GET))
-        .resource("/properties/{property_name}", |r| {
-            r.get().f(property_handler_GET);
-            r.put().with(property_handler_PUT);
+        .resource(&format!("{}/properties", base_path), |r| {
+            r.get().f(properties_handler_GET)
         })
-        .resource("/actions", |r| {
+        .resource(
+            &format!("{}/properties/{{property_name}}", base_path),
+            |r| {
+                r.get().f(property_handler_GET);
+                r.put().with(property_handler_PUT);
+            },
+        )
+        .resource(&format!("{}/actions", base_path), |r| {
             r.get().f(actions_handler_GET);
             r.post().with(actions_handler_POST);
         })
-        .resource("/actions/{action_name}", |r| {
+        .resource(&format!("{}/actions/{{action_name}}", base_path), |r| {
             r.get().f(action_handler_GET);
             r.post().with(action_handler_POST);
         })
-        .resource("/actions/{action_name}/{action_id}", |r| {
-            r.get().f(action_id_handler_GET);
-            r.delete().f(action_id_handler_DELETE);
-            r.put().with(action_id_handler_PUT);
+        .resource(
+            &format!("{}/actions/{{action_name}}/{{action_id}}", base_path),
+            |r| {
+                r.get().f(action_id_handler_GET);
+                r.delete().f(action_id_handler_DELETE);
+                r.put().with(action_id_handler_PUT);
+            },
+        )
+        .resource(&format!("{}/events", base_path), |r| {
+            r.get().f(events_handler_GET)
         })
-        .resource("/events", |r| r.get().f(events_handler_GET))
-        .resource("/events/{event_name}", |r| r.get().f(event_handler_GET))
+        .resource(&format!("{}/events/{{event_name}}", base_path), |r| {
+            r.get().f(event_handler_GET)
+        })
         .boxed()
     } else {
         app.resource("/", |r| r.get().f(things_handler_GET))
-            .scope("/{thing_id}", |scope| {
+            .scope(&format!("{}/{{thing_id}}", base_path), |scope| {
                 scope
                     .resource("", |r| {
                         r.route()
@@ -899,6 +918,7 @@ fn build_server(
 #[allow(dead_code)]
 pub struct WebThingServer {
     things: ThingsType,
+    base_path: String,
     port: Option<u16>,
     hostname: Option<String>,
     ssl_options: Option<(String, String)>,
@@ -917,6 +937,8 @@ impl WebThingServer {
     /// hostname -- optional host name, i.e. mything.com
     /// ssl_options -- tuple of SSL options to pass to the actix web server
     /// action_generator -- action generator struct
+    /// router -- additional router to add to server
+    /// base_path -- base URL to use, rather than '/'
     pub fn new(
         things: ThingsType,
         port: Option<u16>,
@@ -924,6 +946,7 @@ impl WebThingServer {
         ssl_options: Option<(String, String)>,
         action_generator: Box<ActionGenerator>,
         router: Option<Box<Fn(App<AppState>) -> App<AppState> + Send + Sync>>,
+        base_path: Option<String>,
     ) -> WebThingServer {
         let sys = actix::System::new("webthing");
         let generator_arc = Arc::new(action_generator);
@@ -932,8 +955,14 @@ impl WebThingServer {
             None => None,
         };
 
+        let base_path = match base_path {
+            Some(p) => p.trim_end_matches("/").to_string(),
+            None => "".to_owned(),
+        };
+
         WebThingServer {
             things: things,
+            base_path: base_path,
             port: port,
             hostname: hostname,
             ssl_options: ssl_options,
@@ -979,10 +1008,15 @@ impl WebThingServer {
             ThingsType::Multiple(ref mut things, _) => {
                 for (idx, thing) in things.iter_mut().enumerate() {
                     let mut thing = thing.write().unwrap();
-                    thing.set_href_prefix(format!("/{}", idx));
+                    thing.set_href_prefix(format!("{}/{}", self.base_path, idx));
                 }
             }
-            ThingsType::Single(_) => {}
+            ThingsType::Single(ref mut thing) => {
+                thing
+                    .write()
+                    .unwrap()
+                    .set_href_prefix(self.base_path.clone());
+            }
         }
 
         let single = match &self.things {
@@ -996,14 +1030,17 @@ impl WebThingServer {
             Some(ref r) => Some(r.clone()),
             None => None,
         };
+
+        let bp = self.base_path.clone();
         let server = server::new(move || {
+            let bp = bp.clone();
             let app = build_app(&things_arc, &hosts_arc, &generator_arc_clone);
             match router {
                 Some(ref r) => {
                     let app = r(app);
-                    build_server(app, single)
+                    build_server(app, single, bp)
                 }
-                None => build_server(app, single),
+                None => build_server(app, single, bp),
             }
         });
 
