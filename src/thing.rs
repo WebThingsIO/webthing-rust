@@ -42,10 +42,10 @@ pub trait Thing: Send + Sync {
     /// href -- the href
     fn set_ui_href(&mut self, href: String);
 
-    /// Get the name of the thing.
+    /// Get the title of the thing.
     ///
-    /// Returns the name as a string.
-    fn get_name(&self) -> String;
+    /// Returns the title as a string.
+    fn get_title(&self) -> String;
 
     /// Get the type context of the thing.
     ///
@@ -271,7 +271,7 @@ pub trait Thing: Send + Sync {
 pub struct BaseThing {
     context: String,
     type_: Vec<String>,
-    name: String,
+    title: String,
     description: String,
     properties: HashMap<String, Box<Property>>,
     available_actions: HashMap<String, AvailableAction>,
@@ -286,10 +286,10 @@ pub struct BaseThing {
 impl BaseThing {
     /// Create a new BaseThing.
     ///
-    /// name -- the thing's name
+    /// title -- the thing's title
     /// type -- the thing's type(s)
     /// description -- description of the thing
-    pub fn new(name: String, type_: Option<Vec<String>>, description: Option<String>) -> BaseThing {
+    pub fn new(title: String, type_: Option<Vec<String>>, description: Option<String>) -> BaseThing {
         let _type = match type_ {
             Some(t) => t,
             None => vec![],
@@ -303,7 +303,7 @@ impl BaseThing {
         BaseThing {
             context: "https://iot.mozilla.org/schemas".to_owned(),
             type_: _type,
-            name: name,
+            title: title,
             description: _description,
             properties: HashMap::new(),
             available_actions: HashMap::new(),
@@ -324,7 +324,7 @@ impl Thing for BaseThing {
     fn as_thing_description(&self) -> serde_json::Map<String, serde_json::Value> {
         let mut description = serde_json::Map::new();
 
-        description.insert("name".to_owned(), json!(self.get_name()));
+        description.insert("title".to_owned(), json!(self.get_title()));
         description.insert("href".to_owned(), json!(self.get_href()));
         description.insert("@context".to_owned(), json!(self.get_context()));
         description.insert("@type".to_owned(), json!(self.get_type()));
@@ -464,11 +464,11 @@ impl Thing for BaseThing {
         self.ui_href = Some(href);
     }
 
-    /// Get the name of the thing.
+    /// Get the title of the thing.
     ///
-    /// Returns the name as a string.
-    fn get_name(&self) -> String {
-        self.name.clone()
+    /// Returns the title as a string.
+    fn get_title(&self) -> String {
+        self.title.clone()
     }
 
     /// Get the type context of the thing.
