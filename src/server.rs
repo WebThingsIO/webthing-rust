@@ -1000,7 +1000,7 @@ impl WebThingServer {
         }
 
         let name = match &self.things {
-            ThingsType::Single(thing) => thing.read().unwrap().get_name(),
+            ThingsType::Single(thing) => thing.read().unwrap().get_title(),
             ThingsType::Multiple(_, name) => name.to_owned(),
         };
 
