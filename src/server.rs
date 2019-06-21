@@ -382,6 +382,16 @@ fn things_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
                 links.push(json!(link));
             }
 
+            description.insert(
+                "base".to_owned(),
+                json!(format!("{}://{}{}", scheme, host, thing.get_href())),
+            );
+            description.insert(
+                "securityDefinitions".to_owned(),
+                json!({"nosec_sc": {"scheme": "nosec"}}),
+            );
+            description.insert("security".to_owned(), json!("nosec_sc"));
+
             response.push(description);
         }
     }
@@ -421,6 +431,16 @@ fn thing_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
                     .unwrap();
                 links.push(json!(link));
             }
+
+            description.insert(
+                "base".to_owned(),
+                json!(format!("{}://{}{}", scheme, host, thing.get_href())),
+            );
+            description.insert(
+                "securityDefinitions".to_owned(),
+                json!({"nosec_sc": {"scheme": "nosec"}}),
+            );
+            description.insert("security".to_owned(), json!("nosec_sc"));
 
             HttpResponse::Ok().json(description)
         }

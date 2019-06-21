@@ -163,6 +163,7 @@ impl ActionGenerator for Generator {
 
 fn make_thing() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
+        "urn:dev:ops:my-lamp-1234".to_owned(),
         "My Lamp".to_owned(),
         Some(vec!["OnOffSwitch".to_owned(), "Light".to_owned()]),
         Some("A web connected lamp".to_owned()),

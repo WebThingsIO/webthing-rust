@@ -1,10 +1,12 @@
 # webthing Changelog
 
 ## [Unreleased]
-### Added
-- Ability to set a base URL path on server.
 ### Changed
 - Things now use `title` rather than `name`.
+- Things now require a unique ID in the form of a URI.
+### Added
+- Ability to set a base URL path on server.
+- Support for `id`, `base`, `security`, and `securityDefinitions` keys in thing description.
 
 ## [0.11.0] - 2019-01-16
 ### Changed
