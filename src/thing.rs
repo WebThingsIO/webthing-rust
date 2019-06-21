@@ -42,6 +42,11 @@ pub trait Thing: Send + Sync {
     /// href -- the href
     fn set_ui_href(&mut self, href: String);
 
+    /// Get the ID of the thing.
+    ///
+    /// Returns the ID as a string.
+    fn get_id(&self) -> String;
+
     /// Get the title of the thing.
     ///
     /// Returns the title as a string.
@@ -269,6 +274,7 @@ pub trait Thing: Send + Sync {
 ///
 /// This can easily be used by other things to handle most of the boring work.
 pub struct BaseThing {
+    id: String,
     context: String,
     type_: Vec<String>,
     title: String,
@@ -286,10 +292,16 @@ pub struct BaseThing {
 impl BaseThing {
     /// Create a new BaseThing.
     ///
+    /// id -- the thing's unique ID - must be a URI
     /// title -- the thing's title
     /// type -- the thing's type(s)
     /// description -- description of the thing
-    pub fn new(title: String, type_: Option<Vec<String>>, description: Option<String>) -> BaseThing {
+    pub fn new(
+        id: String,
+        title: String,
+        type_: Option<Vec<String>>,
+        description: Option<String>,
+    ) -> BaseThing {
         let _type = match type_ {
             Some(t) => t,
             None => vec![],
@@ -301,6 +313,7 @@ impl BaseThing {
         };
 
         BaseThing {
+            id: id,
             context: "https://iot.mozilla.org/schemas".to_owned(),
             type_: _type,
             title: title,
@@ -324,8 +337,8 @@ impl Thing for BaseThing {
     fn as_thing_description(&self) -> serde_json::Map<String, serde_json::Value> {
         let mut description = serde_json::Map::new();
 
+        description.insert("id".to_owned(), json!(self.get_id()));
         description.insert("title".to_owned(), json!(self.get_title()));
-        description.insert("href".to_owned(), json!(self.get_href()));
         description.insert("@context".to_owned(), json!(self.get_context()));
         description.insert("@type".to_owned(), json!(self.get_type()));
         description.insert(
@@ -462,6 +475,13 @@ impl Thing for BaseThing {
     /// href -- the href
     fn set_ui_href(&mut self, href: String) {
         self.ui_href = Some(href);
+    }
+
+    /// Get the ID of the thing.
+    ///
+    /// Returns the ID as a string.
+    fn get_id(&self) -> String {
+        self.id.clone()
     }
 
     /// Get the title of the thing.

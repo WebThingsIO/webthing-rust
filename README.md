@@ -35,6 +35,7 @@ First we create a new Thing:
 
 ```rust
 let mut light = BaseThing::new(
+    "urn:dev:ops:my-lamp-1234".to_owned(),
     "My Lamp".to_owned(),
     Some(vec!["OnOffSwitch".to_owned(), "Light".to_owned()]),
     Some("A web connected lamp".to_owned()),
@@ -130,6 +131,7 @@ First we create a new Thing:
 
 ```rust
 let mut thing = BaseThing::new(
+    "urn:dev:ops:my-humidity-sensor-1234".to_owned(),
     "My Humidity Sensor".to_owned(),
     Some(vec!["MultiLevelSensor".to_owned()]),
     Some("A web connected humidity sensor".to_owned()),

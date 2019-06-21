@@ -182,6 +182,7 @@ impl ValueForwarder for BrightnessValueForwarder {
 /// A dimmable light that logs received commands to stdout.
 fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
+        "urn:dev:ops:my-lamp-1234".to_owned(),
         "My Lamp".to_owned(),
         Some(vec!["OnOffSwitch".to_owned(), "Light".to_owned()]),
         Some("A web connected lamp".to_owned()),
@@ -259,6 +260,7 @@ fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
 /// A humidity sensor which updates its measurement every few seconds.
 fn make_sensor() -> Arc<RwLock<Box<Thing + 'static>>> {
     let mut thing = BaseThing::new(
+        "urn:dev:ops:my-humidity-sensor-1234".to_owned(),
         "My Humidity Sensor".to_owned(),
         Some(vec!["MultiLevelSensor".to_owned()]),
         Some("A web connected humidity sensor".to_owned()),
