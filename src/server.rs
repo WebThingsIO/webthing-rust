@@ -382,6 +382,7 @@ fn things_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
                 links.push(json!(link));
             }
 
+            description.insert("href".to_owned(), json!(thing.get_href()));
             description.insert(
                 "base".to_owned(),
                 json!(format!("{}://{}{}", scheme, host, thing.get_href())),
