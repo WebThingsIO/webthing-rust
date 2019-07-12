@@ -1,6 +1,8 @@
 # webthing Changelog
 
 ## [Unreleased]
+
+## [0.12.0] - 2019-07-12
 ### Changed
 - Things now use `title` rather than `name`.
 - Things now require a unique ID in the form of a URI.
@@ -30,7 +32,8 @@
 ### Changed
 - Property, Action, and Event description now use `links` rather than `href`. - [Spec PR](https://github.com/mozilla-iot/wot/pull/119)
 
-[Unreleased]: https://github.com/mozilla-iot/webthing-rust/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/mozilla-iot/webthing-rust/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/mozilla-iot/webthing-rust/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.3...v0.11.0
 [0.10.3]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.1...v0.10.2

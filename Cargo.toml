@@ -23,7 +23,7 @@ valico = "3.0"
 
 [dev-dependencies]
 env_logger = "0.6"
-rand = "0.6"
+rand = "0.7"
 
 [features]
 default = []
