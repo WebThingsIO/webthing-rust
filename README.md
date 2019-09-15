@@ -1,6 +1,6 @@
 # webthing
 
-[![Build Status](https://travis-ci.org/mozilla-iot/webthing-rust.svg?branch=master)](https://travis-ci.org/mozilla-iot/webthing-rust)
+[![Build Status](https://github.com/mozilla-iot/webthing-rust/workflows/Rust%20package/badge.svg)](https://github.com/mozilla-iot/webthing-rust/workflows/Rust%20package)
 [![Crates.io](https://img.shields.io/crates/v/webthing.svg)](https://crates.io/crates/webthing)
 [![license](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 
@@ -12,7 +12,7 @@ If you're using `Cargo`, just add `webthing` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-webthing = "0.9"
+webthing = "0.12"
 ```
 
 ## TLS Support

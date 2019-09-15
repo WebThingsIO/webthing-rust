@@ -1,0 +1,28 @@
+name: Rust package
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust_version: ['stable', 'beta', 'nightly']
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions/setup-python@v1
+        with:
+          python-version: '3.7'
+      - name: Install dependencies
+        run: |
+          rustup install ${{matrix.rust_version }}
+          rustup default ${{matrix.rust_version }}
+      - name: Run integration tests
+        run: |
+          ./test.sh
