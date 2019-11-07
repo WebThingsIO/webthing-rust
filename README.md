@@ -104,7 +104,7 @@ thing.add_property(Box::new(BaseProperty::new(
 Now we can add our newly created thing to the server and start it:
 
 ```rust
-let mut things: Vec<Arc<RwLock<Box<Thing + 'static>>>> = Vec::new();
+let mut things: Vec<Arc<RwLock<Box<dyn Thing + 'static>>>> = Vec::new();
 things.push(Arc::new(RwLock::new(Box::new(light)));
 
 // If adding more than one thing, use ThingsType::Multiple() with a name.

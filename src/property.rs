@@ -100,7 +100,7 @@ pub trait Property: Send + Sync {
 pub struct BaseProperty {
     name: String,
     last_value: serde_json::Value,
-    value_forwarder: Option<Box<ValueForwarder>>,
+    value_forwarder: Option<Box<dyn ValueForwarder>>,
     href_prefix: String,
     href: String,
     metadata: serde_json::Map<String, serde_json::Value>,
@@ -116,7 +116,7 @@ impl BaseProperty {
     pub fn new(
         name: String,
         initial_value: serde_json::Value,
-        value_forwarder: Option<Box<ValueForwarder>>,
+        value_forwarder: Option<Box<dyn ValueForwarder>>,
         metadata: Option<serde_json::Map<String, serde_json::Value>>,
     ) -> BaseProperty {
         let meta = match metadata {

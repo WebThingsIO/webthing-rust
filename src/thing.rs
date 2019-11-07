@@ -18,10 +18,10 @@ pub trait Thing: Send + Sync {
     fn as_thing_description(&self) -> serde_json::Map<String, serde_json::Value>;
 
     /// Return this thing as an Any.
-    fn as_any(&self) -> &Any;
+    fn as_any(&self) -> &dyn Any;
 
     /// Return this thing as a mutable Any.
-    fn as_mut_any(&mut self) -> &mut Any;
+    fn as_mut_any(&mut self) -> &mut dyn Any;
 
     /// Get this thing's href.
     fn get_href(&self) -> String;
@@ -89,7 +89,7 @@ pub trait Thing: Send + Sync {
     /// Add a property to this thing.
     ///
     /// property -- property to add
-    fn add_property(&mut self, property: Box<Property>);
+    fn add_property(&mut self, property: Box<dyn Property>);
 
     /// Remove a property from this thing.
     ///
@@ -101,7 +101,7 @@ pub trait Thing: Send + Sync {
     /// property_name -- the property to find
     ///
     /// Returns a boxed property trait object, if found, else None.
-    fn find_property(&mut self, property_name: String) -> Option<&mut Box<Property>>;
+    fn find_property(&mut self, property_name: String) -> Option<&mut Box<dyn Property>>;
 
     /// Get a property's value.
     ///
@@ -160,12 +160,12 @@ pub trait Thing: Send + Sync {
         &self,
         action_name: String,
         action_id: String,
-    ) -> Option<Arc<RwLock<Box<Action>>>>;
+    ) -> Option<Arc<RwLock<Box<dyn Action>>>>;
 
     /// Add a new event and notify subscribers.
     ///
     /// event -- the event that occurred
-    fn add_event(&mut self, event: Box<Event>);
+    fn add_event(&mut self, event: Box<dyn Event>);
 
     /// Add an available event.
     ///
@@ -185,7 +185,7 @@ pub trait Thing: Send + Sync {
     /// Returns the action that was created.
     fn add_action(
         &mut self,
-        action: Arc<RwLock<Box<Action>>>,
+        action: Arc<RwLock<Box<dyn Action>>>,
         input: Option<&serde_json::Value>,
     ) -> Result<(), &str>;
 
@@ -279,11 +279,11 @@ pub struct BaseThing {
     type_: Vec<String>,
     title: String,
     description: String,
-    properties: HashMap<String, Box<Property>>,
+    properties: HashMap<String, Box<dyn Property>>,
     available_actions: HashMap<String, AvailableAction>,
     available_events: HashMap<String, AvailableEvent>,
-    actions: HashMap<String, Vec<Arc<RwLock<Box<Action>>>>>,
-    events: Vec<Box<Event>>,
+    actions: HashMap<String, Vec<Arc<RwLock<Box<dyn Action>>>>>,
+    events: Vec<Box<dyn Event>>,
     subscribers: HashMap<String, Vec<String>>,
     href_prefix: String,
     ui_href: Option<String>,
@@ -425,12 +425,12 @@ impl Thing for BaseThing {
     }
 
     /// Return this thing as an Any.
-    fn as_any(&self) -> &Any {
+    fn as_any(&self) -> &dyn Any {
         self
     }
 
     /// Return this thing as a mutable Any.
-    fn as_mut_any(&mut self) -> &mut Any {
+    fn as_mut_any(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -584,7 +584,7 @@ impl Thing for BaseThing {
     /// Add a property to this thing.
     ///
     /// property -- property to add
-    fn add_property(&mut self, mut property: Box<Property>) {
+    fn add_property(&mut self, mut property: Box<dyn Property>) {
         property.set_href_prefix(self.get_href_prefix());
         self.properties.insert(property.get_name(), property);
     }
@@ -601,7 +601,7 @@ impl Thing for BaseThing {
     /// property_name -- the property to find
     ///
     /// Returns a boxed property trait object, if found, else None.
-    fn find_property(&mut self, property_name: String) -> Option<&mut Box<Property>> {
+    fn find_property(&mut self, property_name: String) -> Option<&mut Box<dyn Property>> {
         self.properties.get_mut(&property_name)
     }
 
@@ -648,7 +648,7 @@ impl Thing for BaseThing {
         &self,
         action_name: String,
         action_id: String,
-    ) -> Option<Arc<RwLock<Box<Action>>>> {
+    ) -> Option<Arc<RwLock<Box<dyn Action>>>> {
         match self.actions.get(&action_name) {
             Some(entry) => {
                 for action in entry {
@@ -666,7 +666,7 @@ impl Thing for BaseThing {
     /// Add a new event and notify subscribers.
     ///
     /// event -- the event that occurred
-    fn add_event(&mut self, event: Box<Event>) {
+    fn add_event(&mut self, event: Box<dyn Event>) {
         self.event_notify(event.get_name(), event.as_event_description());
         self.events.push(event);
     }
@@ -692,7 +692,7 @@ impl Thing for BaseThing {
     /// Returns the action that was created.
     fn add_action(
         &mut self,
-        action: Arc<RwLock<Box<Action>>>,
+        action: Arc<RwLock<Box<dyn Action>>>,
         input: Option<&serde_json::Value>,
     ) -> Result<(), &str> {
         let action_name = action.read().unwrap().get_name();
@@ -730,7 +730,7 @@ impl Thing for BaseThing {
             Some(action) => {
                 action.write().unwrap().cancel();
 
-                let mut actions = self.actions.get_mut(&action_name).unwrap();
+                let actions = self.actions.get_mut(&action_name).unwrap();
                 actions.retain(|ref a| a.read().unwrap().get_id() != action_id);
 
                 true

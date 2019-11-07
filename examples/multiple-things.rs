@@ -43,7 +43,7 @@ pub struct FadeAction(BaseAction);
 impl FadeAction {
     fn new(
         input: Option<serde_json::Map<String, serde_json::Value>>,
-        thing: Weak<RwLock<Box<Thing>>>,
+        thing: Weak<RwLock<Box<dyn Thing>>>,
     ) -> FadeAction {
         FadeAction(BaseAction::new(
             Uuid::new_v4().to_string(),
@@ -87,7 +87,7 @@ impl Action for FadeAction {
         self.0.get_input()
     }
 
-    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>> {
+    fn get_thing(&self) -> Option<Arc<RwLock<Box<dyn Thing>>>> {
         self.0.get_thing()
     }
 
@@ -141,10 +141,10 @@ struct Generator;
 impl ActionGenerator for Generator {
     fn generate(
         &self,
-        thing: Weak<RwLock<Box<Thing>>>,
+        thing: Weak<RwLock<Box<dyn Thing>>>,
         name: String,
         input: Option<&serde_json::Value>,
-    ) -> Option<Box<Action>> {
+    ) -> Option<Box<dyn Action>> {
         let input = match input {
             Some(v) => match v.as_object() {
                 Some(o) => Some(o.clone()),
@@ -180,7 +180,7 @@ impl ValueForwarder for BrightnessValueForwarder {
 }
 
 /// A dimmable light that logs received commands to stdout.
-fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
+fn make_light() -> Arc<RwLock<Box<dyn Thing + 'static>>> {
     let mut thing = BaseThing::new(
         "urn:dev:ops:my-lamp-1234".to_owned(),
         "My Lamp".to_owned(),
@@ -258,7 +258,7 @@ fn make_light() -> Arc<RwLock<Box<Thing + 'static>>> {
 }
 
 /// A humidity sensor which updates its measurement every few seconds.
-fn make_sensor() -> Arc<RwLock<Box<Thing + 'static>>> {
+fn make_sensor() -> Arc<RwLock<Box<dyn Thing + 'static>>> {
     let mut thing = BaseThing::new(
         "urn:dev:ops:my-humidity-sensor-1234".to_owned(),
         "My Humidity Sensor".to_owned(),
@@ -290,7 +290,7 @@ fn make_sensor() -> Arc<RwLock<Box<Thing + 'static>>> {
 fn main() {
     env_logger::init();
 
-    let mut things: Vec<Arc<RwLock<Box<Thing + 'static>>>> = Vec::new();
+    let mut things: Vec<Arc<RwLock<Box<dyn Thing + 'static>>>> = Vec::new();
 
     // Create a thing that represents a dimmable light
     things.push(make_light());

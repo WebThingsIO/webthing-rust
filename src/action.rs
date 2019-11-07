@@ -49,7 +49,7 @@ pub trait Action: Send + Sync {
     fn get_status(&self) -> String;
 
     /// Get the thing associated with this action.
-    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>>;
+    fn get_thing(&self) -> Option<Arc<RwLock<Box<dyn Thing>>>>;
 
     /// Get the time the action was requested.
     fn get_time_requested(&self) -> String;
@@ -92,7 +92,7 @@ pub struct BaseAction {
     status: String,
     time_requested: String,
     time_completed: Option<String>,
-    thing: Weak<RwLock<Box<Thing>>>,
+    thing: Weak<RwLock<Box<dyn Thing>>>,
 }
 
 impl BaseAction {
@@ -105,7 +105,7 @@ impl BaseAction {
         id: String,
         name: String,
         input: Option<serde_json::Map<String, serde_json::Value>>,
-        thing: Weak<RwLock<Box<Thing>>>,
+        thing: Weak<RwLock<Box<dyn Thing>>>,
     ) -> BaseAction {
         let href = format!("/actions/{}/{}", name, id);
 
@@ -153,7 +153,7 @@ impl Action for BaseAction {
     }
 
     /// Get the thing associated with this action.
-    fn get_thing(&self) -> Option<Arc<RwLock<Box<Thing>>>> {
+    fn get_thing(&self) -> Option<Arc<RwLock<Box<dyn Thing>>>> {
         self.thing.upgrade()
     }
 

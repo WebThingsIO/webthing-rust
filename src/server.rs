@@ -26,9 +26,9 @@ use super::utils::get_addresses;
 #[derive(Clone)]
 pub enum ThingsType {
     /// Set when there are multiple things managed by the server
-    Multiple(Vec<Arc<RwLock<Box<Thing>>>>, String),
+    Multiple(Vec<Arc<RwLock<Box<dyn Thing>>>>, String),
     /// Set when there is only one thing
-    Single(Arc<RwLock<Box<Thing>>>),
+    Single(Arc<RwLock<Box<dyn Thing>>>),
 }
 
 /// Generator for new actions, based on name.
@@ -40,17 +40,17 @@ pub trait ActionGenerator: Send + Sync {
     /// input -- input for the action
     fn generate(
         &self,
-        thing: Weak<RwLock<Box<Thing>>>,
+        thing: Weak<RwLock<Box<dyn Thing>>>,
         name: String,
         input: Option<&serde_json::Value>,
-    ) -> Option<Box<Action>>;
+    ) -> Option<Box<dyn Action>>;
 }
 
 /// Shared app state, used by server threads.
 pub struct AppState {
     things: Arc<ThingsType>,
     hosts: Arc<Vec<String>>,
-    action_generator: Arc<Box<ActionGenerator>>,
+    action_generator: Arc<Box<dyn ActionGenerator>>,
 }
 
 impl AppState {
@@ -59,7 +59,7 @@ impl AppState {
     /// thing_id -- ID of the thing to get, in string form
     ///
     /// Returns the thing, or None if not found.
-    fn get_thing(&self, thing_id: Option<&str>) -> Option<Arc<RwLock<Box<Thing>>>> {
+    fn get_thing(&self, thing_id: Option<&str>) -> Option<Arc<RwLock<Box<dyn Thing>>>> {
         match self.things.as_ref() {
             ThingsType::Multiple(ref inner_things, _) => {
                 if thing_id.is_none() {
@@ -87,7 +87,7 @@ impl AppState {
         self.things.clone()
     }
 
-    fn get_action_generator(&self) -> Arc<Box<ActionGenerator>> {
+    fn get_action_generator(&self) -> Arc<Box<dyn ActionGenerator>> {
         self.action_generator.clone()
     }
 
@@ -126,7 +126,7 @@ struct ThingWebSocket {
     id: String,
     thing_id: usize,
     things: Arc<ThingsType>,
-    action_generator: Arc<Box<ActionGenerator>>,
+    action_generator: Arc<Box<dyn ActionGenerator>>,
 }
 
 impl ThingWebSocket {
@@ -136,7 +136,7 @@ impl ThingWebSocket {
     }
 
     /// Get the thing associated with this websocket.
-    fn get_thing(&self) -> Arc<RwLock<Box<Thing>>> {
+    fn get_thing(&self) -> Arc<RwLock<Box<dyn Thing>>> {
         match self.things.as_ref() {
             ThingsType::Multiple(ref things, _) => things[self.thing_id].clone(),
             ThingsType::Single(ref thing) => thing.clone(),
@@ -824,7 +824,7 @@ fn event_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
 fn build_app(
     things: &Arc<ThingsType>,
     hosts: &Arc<Vec<String>>,
-    action_generator: &Arc<Box<ActionGenerator>>,
+    action_generator: &Arc<Box<dyn ActionGenerator>>,
 ) -> App<AppState> {
     App::with_state(AppState {
         things: things.clone(),
@@ -943,8 +943,8 @@ pub struct WebThingServer {
     port: Option<u16>,
     hostname: Option<String>,
     ssl_options: Option<(String, String)>,
-    generator_arc: Arc<Box<ActionGenerator>>,
-    router_arc: Option<Arc<Box<Fn(App<AppState>) -> App<AppState> + Send + Sync>>>,
+    generator_arc: Arc<Box<dyn ActionGenerator>>,
+    router_arc: Option<Arc<Box<dyn Fn(App<AppState>) -> App<AppState> + Send + Sync>>>,
     system: actix::SystemRunner,
 }
 
@@ -965,8 +965,8 @@ impl WebThingServer {
         port: Option<u16>,
         hostname: Option<String>,
         ssl_options: Option<(String, String)>,
-        action_generator: Box<ActionGenerator>,
-        router: Option<Box<Fn(App<AppState>) -> App<AppState> + Send + Sync>>,
+        action_generator: Box<dyn ActionGenerator>,
+        router: Option<Box<dyn Fn(App<AppState>) -> App<AppState> + Send + Sync>>,
         base_path: Option<String>,
     ) -> WebThingServer {
         let sys = actix::System::new("webthing");
@@ -1004,7 +1004,7 @@ impl WebThingServer {
 
         let system_hostname = get_hostname();
         if system_hostname.is_some() {
-            let name = system_hostname.unwrap().to_lowercase();;
+            let name = system_hostname.unwrap().to_lowercase();
             hosts.push(format!("{}.local", name));
             hosts.push(format!("{}.local:{}", name, port));
         }
