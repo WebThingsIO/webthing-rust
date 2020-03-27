@@ -1,6 +1,6 @@
 [package]
 name = "webthing"
-version = "0.12.1"
+version = "0.12.2"
 authors = ["Mozilla IoT <iot@mozilla.com>"]
 repository = "https://github.com/mozilla-iot/webthing-rust"
 homepage = "https://github.com/mozilla-iot/webthing-rust"
@@ -14,12 +14,12 @@ actix-net = "0.2"
 actix-web = { version = "0.7", default-features = false, features = ["brotli", "flate2-c", "cell"] }
 chrono = "0.4"
 get_if_addrs = "0.5"
-hostname = "0.1"
+hostname = "0.3"
 libmdns = "0.2"
 openssl = { version = "0.10", optional = true }
 serde_json = "1.0"
 uuid = { version = "0.8", features = ["v4"] }
-valico = "3.1"
+valico = "3.2"
 
 [dev-dependencies]
 env_logger = "0.7"
