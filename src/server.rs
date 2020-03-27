@@ -8,7 +8,7 @@ use actix_web::http::header;
 use actix_web::server::{HttpHandler, HttpHandlerTask};
 use actix_web::HttpMessage;
 use actix_web::{middleware, pred, server, ws, App, Error, HttpRequest, HttpResponse, Json};
-use hostname::get_hostname;
+use hostname;
 use libmdns;
 #[cfg(feature = "ssl")]
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
@@ -1002,9 +1002,13 @@ impl WebThingServer {
 
         let mut hosts = vec!["localhost".to_owned(), format!("localhost:{}", port)];
 
-        let system_hostname = get_hostname();
-        if system_hostname.is_some() {
-            let name = system_hostname.unwrap().to_lowercase();
+        let system_hostname = hostname::get();
+        if system_hostname.is_ok() {
+            let name = system_hostname
+                .unwrap()
+                .into_string()
+                .unwrap()
+                .to_lowercase();
             hosts.push(format!("{}.local", name));
             hosts.push(format!("{}.local:{}", name, port));
         }
