@@ -131,22 +131,13 @@ pub trait Thing: Send + Sync {
         property_name: String,
         value: serde_json::Value,
     ) -> Result<(), &'static str> {
-        {
-            let prop = self.find_property(property_name.clone());
-            if prop.is_none() {
-                return Err("Property not found");
-            }
+        let property = self
+            .find_property(&property_name)
+            .ok_or_else(|| "Property not found")?;
 
-            let prop = prop.unwrap();
-            match prop.set_value(value.clone()) {
-                Ok(_) => (),
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-        }
-
+        property.set_value(value.clone())?;
         self.property_notify(property_name, value);
+
         Ok(())
     }
 
