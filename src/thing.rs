@@ -264,6 +264,7 @@ pub trait Thing: Send + Sync {
 /// Basic web thing implementation.
 ///
 /// This can easily be used by other things to handle most of the boring work.
+#[derive(Default)]
 pub struct BaseThing {
     id: String,
     context: String,
