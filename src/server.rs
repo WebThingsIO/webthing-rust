@@ -504,7 +504,7 @@ fn property_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
     let thing = thing.read().unwrap();
     if thing.has_property(&property_name.to_string()) {
         HttpResponse::Ok()
-            .json(json!({property_name: thing.get_property(property_name.to_string()).unwrap()}))
+            .json(json!({property_name: thing.get_property(&property_name.to_string()).unwrap()}))
     } else {
         HttpResponse::NotFound().finish()
     }
@@ -549,7 +549,7 @@ fn property_handler_PUT(
             .is_ok()
         {
             HttpResponse::Ok().json(
-                json!({property_name: thing.get_property(property_name.to_string()).unwrap()}),
+                json!({property_name: thing.get_property(&property_name.to_string()).unwrap()}),
             )
         } else {
             HttpResponse::BadRequest().finish()

@@ -108,7 +108,7 @@ pub trait Thing: Send + Sync {
     /// property_name -- the property to get the value of
     ///
     /// Returns the properties value, if found, else None.
-    fn get_property(&self, property_name: String) -> Option<serde_json::Value>;
+    fn get_property(&self, property_name: &String) -> Option<serde_json::Value>;
 
     /// Get a mapping of all properties and their values.
     ///
@@ -583,9 +583,9 @@ impl Thing for BaseThing {
     /// property_name -- the property to get the value of
     ///
     /// Returns the properties value, if found, else None.
-    fn get_property(&self, property_name: String) -> Option<serde_json::Value> {
-        if self.has_property(&property_name) {
-            Some(self.properties.get(&property_name).unwrap().get_value())
+    fn get_property(&self, property_name: &String) -> Option<serde_json::Value> {
+        if self.has_property(property_name) {
+            Some(self.properties.get(property_name).unwrap().get_value())
         } else {
             None
         }
