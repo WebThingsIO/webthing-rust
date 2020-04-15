@@ -316,7 +316,7 @@ fn main() {
 
             {
                 let mut t = t.write().unwrap();
-                let prop = t.find_property("level".to_owned()).unwrap();
+                let prop = t.find_property(&"level".to_owned()).unwrap();
                 let _ = prop.set_cached_value(new_value.clone());
             }
 
