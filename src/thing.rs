@@ -101,7 +101,7 @@ pub trait Thing: Send + Sync {
     /// property_name -- the property to find
     ///
     /// Returns a boxed property trait object, if found, else None.
-    fn find_property(&mut self, property_name: String) -> Option<&mut Box<dyn Property>>;
+    fn find_property(&mut self, property_name: &String) -> Option<&mut Box<dyn Property>>;
 
     /// Get a property's value.
     ///
@@ -601,8 +601,8 @@ impl Thing for BaseThing {
     /// property_name -- the property to find
     ///
     /// Returns a boxed property trait object, if found, else None.
-    fn find_property(&mut self, property_name: String) -> Option<&mut Box<dyn Property>> {
-        self.properties.get_mut(&property_name)
+    fn find_property(&mut self, property_name: &String) -> Option<&mut Box<dyn Property>> {
+        self.properties.get_mut(property_name)
     }
 
     /// Get a property's value.
