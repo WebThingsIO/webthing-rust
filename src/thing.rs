@@ -491,7 +491,7 @@ impl Thing for BaseThing {
     ///
     /// Returns the properties as a JSON map, i.e. name -> description.
     fn get_property_descriptions(&self) -> serde_json::Map<String, serde_json::Value> {
-        let mut descriptions: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+        let mut descriptions = serde_json::Map::new();
 
         for (name, property) in self.properties.iter() {
             descriptions.insert(name.to_string(), json!(property.as_property_description()));
