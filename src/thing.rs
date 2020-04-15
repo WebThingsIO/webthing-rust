@@ -519,10 +519,8 @@ impl Thing for BaseThing {
                 }
             }
             None => {
-                for actions in self.actions.values() {
-                    for action in actions {
-                        descriptions.push(action.read().unwrap().as_action_description());
-                    }
+                for action in self.actions.values().flatten() {
+                    descriptions.push(action.read().unwrap().as_action_description());
                 }
             }
         }
