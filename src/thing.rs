@@ -534,7 +534,7 @@ impl Thing for BaseThing {
     ///
     /// Returns the event descriptions.
     fn get_event_descriptions(&self, event_name: Option<String>) -> serde_json::Value {
-        let mut descriptions: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
+        let mut descriptions = Vec::new();
 
         match event_name {
             Some(event_name) => {
