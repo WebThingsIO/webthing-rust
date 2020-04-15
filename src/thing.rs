@@ -286,38 +286,21 @@ impl BaseThing {
     ///
     /// id -- the thing's unique ID - must be a URI
     /// title -- the thing's title
-    /// type -- the thing's type(s)
+    /// type_ -- the thing's type(s)
     /// description -- description of the thing
     pub fn new(
         id: String,
         title: String,
         type_: Option<Vec<String>>,
         description: Option<String>,
-    ) -> BaseThing {
-        let _type = match type_ {
-            Some(t) => t,
-            None => vec![],
-        };
-
-        let _description = match description {
-            Some(d) => d,
-            None => "".to_owned(),
-        };
-
-        BaseThing {
-            id: id,
+    ) -> Self {
+        Self {
+            id,
             context: "https://iot.mozilla.org/schemas".to_owned(),
-            type_: _type,
-            title: title,
-            description: _description,
-            properties: HashMap::new(),
-            available_actions: HashMap::new(),
-            available_events: HashMap::new(),
-            actions: HashMap::new(),
-            events: Vec::new(),
-            subscribers: HashMap::new(),
-            href_prefix: "".to_owned(),
-            ui_href: None,
+            type_: type_.unwrap_or_else(|| vec![]),
+            title,
+            description: description.unwrap_or_else(|| "".to_string()),
+            ..Default::default()
         }
     }
 }
