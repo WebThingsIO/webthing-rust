@@ -506,7 +506,7 @@ impl Thing for BaseThing {
     ///
     /// Returns the action descriptions.
     fn get_action_descriptions(&self, action_name: Option<String>) -> serde_json::Value {
-        let mut descriptions: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
+        let mut descriptions = Vec::new();
 
         match action_name {
             Some(action_name) => {
