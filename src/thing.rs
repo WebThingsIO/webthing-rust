@@ -120,7 +120,7 @@ pub trait Thing: Send + Sync {
     /// property_name -- the property to look for
     ///
     /// Returns a boolean, indicating whether or not the thing has the property.
-    fn has_property(&self, property_name: String) -> bool;
+    fn has_property(&self, property_name: &String) -> bool;
 
     /// Set a property value.
     ///
@@ -584,7 +584,7 @@ impl Thing for BaseThing {
     ///
     /// Returns the properties value, if found, else None.
     fn get_property(&self, property_name: String) -> Option<serde_json::Value> {
-        if self.has_property(property_name.clone()) {
+        if self.has_property(&property_name) {
             Some(self.properties.get(&property_name).unwrap().get_value())
         } else {
             None
@@ -607,8 +607,8 @@ impl Thing for BaseThing {
     /// property_name -- the property to look for
     ///
     /// Returns a boolean, indicating whether or not the thing has the property.
-    fn has_property(&self, property_name: String) -> bool {
-        self.properties.contains_key(&property_name)
+    fn has_property(&self, property_name: &String) -> bool {
+        self.properties.contains_key(property_name)
     }
 
     /// Get an action.
