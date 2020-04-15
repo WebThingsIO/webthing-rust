@@ -101,14 +101,14 @@ pub trait Thing: Send + Sync {
     /// property_name -- the property to find
     ///
     /// Returns a boxed property trait object, if found, else None.
-    fn find_property(&mut self, property_name: String) -> Option<&mut Box<dyn Property>>;
+    fn find_property(&mut self, property_name: &String) -> Option<&mut Box<dyn Property>>;
 
     /// Get a property's value.
     ///
     /// property_name -- the property to get the value of
     ///
     /// Returns the properties value, if found, else None.
-    fn get_property(&self, property_name: String) -> Option<serde_json::Value>;
+    fn get_property(&self, property_name: &String) -> Option<serde_json::Value>;
 
     /// Get a mapping of all properties and their values.
     ///
@@ -120,7 +120,7 @@ pub trait Thing: Send + Sync {
     /// property_name -- the property to look for
     ///
     /// Returns a boolean, indicating whether or not the thing has the property.
-    fn has_property(&self, property_name: String) -> bool;
+    fn has_property(&self, property_name: &String) -> bool;
 
     /// Set a property value.
     ///
@@ -131,22 +131,13 @@ pub trait Thing: Send + Sync {
         property_name: String,
         value: serde_json::Value,
     ) -> Result<(), &'static str> {
-        {
-            let prop = self.find_property(property_name.clone());
-            if prop.is_none() {
-                return Err("Property not found");
-            }
+        let property = self
+            .find_property(&property_name)
+            .ok_or_else(|| "Property not found")?;
 
-            let prop = prop.unwrap();
-            match prop.set_value(value.clone()) {
-                Ok(_) => (),
-                Err(e) => {
-                    return Err(e);
-                }
-            }
-        }
-
+        property.set_value(value.clone())?;
         self.property_notify(property_name, value);
+
         Ok(())
     }
 
@@ -273,6 +264,7 @@ pub trait Thing: Send + Sync {
 /// Basic web thing implementation.
 ///
 /// This can easily be used by other things to handle most of the boring work.
+#[derive(Default)]
 pub struct BaseThing {
     id: String,
     context: String,
@@ -294,38 +286,21 @@ impl BaseThing {
     ///
     /// id -- the thing's unique ID - must be a URI
     /// title -- the thing's title
-    /// type -- the thing's type(s)
+    /// type_ -- the thing's type(s)
     /// description -- description of the thing
     pub fn new(
         id: String,
         title: String,
         type_: Option<Vec<String>>,
         description: Option<String>,
-    ) -> BaseThing {
-        let _type = match type_ {
-            Some(t) => t,
-            None => vec![],
-        };
-
-        let _description = match description {
-            Some(d) => d,
-            None => "".to_owned(),
-        };
-
-        BaseThing {
-            id: id,
+    ) -> Self {
+        Self {
+            id,
             context: "https://iot.mozilla.org/schemas".to_owned(),
-            type_: _type,
-            title: title,
-            description: _description,
-            properties: HashMap::new(),
-            available_actions: HashMap::new(),
-            available_events: HashMap::new(),
-            actions: HashMap::new(),
-            events: Vec::new(),
-            subscribers: HashMap::new(),
-            href_prefix: "".to_owned(),
-            ui_href: None,
+            type_: type_.unwrap_or_else(|| vec![]),
+            title,
+            description: description.unwrap_or_else(|| "".to_string()),
+            ..Default::default()
         }
     }
 }
@@ -516,7 +491,7 @@ impl Thing for BaseThing {
     ///
     /// Returns the properties as a JSON map, i.e. name -> description.
     fn get_property_descriptions(&self) -> serde_json::Map<String, serde_json::Value> {
-        let mut descriptions: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+        let mut descriptions = serde_json::Map::new();
 
         for (name, property) in self.properties.iter() {
             descriptions.insert(name.to_string(), json!(property.as_property_description()));
@@ -531,7 +506,7 @@ impl Thing for BaseThing {
     ///
     /// Returns the action descriptions.
     fn get_action_descriptions(&self, action_name: Option<String>) -> serde_json::Value {
-        let mut descriptions: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
+        let mut descriptions = Vec::new();
 
         match action_name {
             Some(action_name) => {
@@ -544,10 +519,8 @@ impl Thing for BaseThing {
                 }
             }
             None => {
-                for actions in self.actions.values() {
-                    for action in actions {
-                        descriptions.push(action.read().unwrap().as_action_description());
-                    }
+                for action in self.actions.values().flatten() {
+                    descriptions.push(action.read().unwrap().as_action_description());
                 }
             }
         }
@@ -561,7 +534,7 @@ impl Thing for BaseThing {
     ///
     /// Returns the event descriptions.
     fn get_event_descriptions(&self, event_name: Option<String>) -> serde_json::Value {
-        let mut descriptions: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
+        let mut descriptions = Vec::new();
 
         match event_name {
             Some(event_name) => {
@@ -601,8 +574,8 @@ impl Thing for BaseThing {
     /// property_name -- the property to find
     ///
     /// Returns a boxed property trait object, if found, else None.
-    fn find_property(&mut self, property_name: String) -> Option<&mut Box<dyn Property>> {
-        self.properties.get_mut(&property_name)
+    fn find_property(&mut self, property_name: &String) -> Option<&mut Box<dyn Property>> {
+        self.properties.get_mut(property_name)
     }
 
     /// Get a property's value.
@@ -610,9 +583,9 @@ impl Thing for BaseThing {
     /// property_name -- the property to get the value of
     ///
     /// Returns the properties value, if found, else None.
-    fn get_property(&self, property_name: String) -> Option<serde_json::Value> {
-        if self.has_property(property_name.clone()) {
-            Some(self.properties.get(&property_name).unwrap().get_value())
+    fn get_property(&self, property_name: &String) -> Option<serde_json::Value> {
+        if self.has_property(property_name) {
+            Some(self.properties.get(property_name).unwrap().get_value())
         } else {
             None
         }
@@ -634,8 +607,8 @@ impl Thing for BaseThing {
     /// property_name -- the property to look for
     ///
     /// Returns a boolean, indicating whether or not the thing has the property.
-    fn has_property(&self, property_name: String) -> bool {
-        self.properties.contains_key(&property_name)
+    fn has_property(&self, property_name: &String) -> bool {
+        self.properties.contains_key(property_name)
     }
 
     /// Get an action.

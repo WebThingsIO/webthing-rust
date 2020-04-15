@@ -22,8 +22,8 @@ pub fn get_addresses() -> Vec<String> {
         };
     }
 
-    let mut results = Vec::new();
-    addresses.iter().for_each(|a| results.push(a.clone()));
+    let mut results = Vec::with_capacity(addresses.len());
+    results.extend(addresses.into_iter());
     results.sort_unstable();
 
     results

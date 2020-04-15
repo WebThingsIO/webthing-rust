@@ -502,9 +502,9 @@ fn property_handler_GET(req: &HttpRequest<AppState>) -> HttpResponse {
 
     let property_name = property_name.unwrap();
     let thing = thing.read().unwrap();
-    if thing.has_property(property_name.to_string()) {
+    if thing.has_property(&property_name.to_string()) {
         HttpResponse::Ok()
-            .json(json!({property_name: thing.get_property(property_name.to_string()).unwrap()}))
+            .json(json!({property_name: thing.get_property(&property_name.to_string()).unwrap()}))
     } else {
         HttpResponse::NotFound().finish()
     }
@@ -540,7 +540,7 @@ fn property_handler_PUT(
     }
 
     let mut thing = thing.write().unwrap();
-    if thing.has_property(property_name.to_string()) {
+    if thing.has_property(&property_name.to_string()) {
         if thing
             .set_property(
                 property_name.to_string(),
@@ -549,7 +549,7 @@ fn property_handler_PUT(
             .is_ok()
         {
             HttpResponse::Ok().json(
-                json!({property_name: thing.get_property(property_name.to_string()).unwrap()}),
+                json!({property_name: thing.get_property(&property_name.to_string()).unwrap()}),
             )
         } else {
             HttpResponse::BadRequest().finish()

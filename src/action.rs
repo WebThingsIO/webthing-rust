@@ -106,10 +106,10 @@ impl BaseAction {
         name: String,
         input: Option<serde_json::Map<String, serde_json::Value>>,
         thing: Weak<RwLock<Box<dyn Thing>>>,
-    ) -> BaseAction {
+    ) -> Self {
         let href = format!("/actions/{}/{}", name, id);
 
-        BaseAction {
+        Self {
             id: id,
             name: name,
             input: input,
