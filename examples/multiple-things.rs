@@ -145,14 +145,7 @@ impl ActionGenerator for Generator {
         name: String,
         input: Option<&serde_json::Value>,
     ) -> Option<Box<dyn Action>> {
-        let input = match input {
-            Some(v) => match v.as_object() {
-                Some(o) => Some(o.clone()),
-                None => None,
-            },
-            None => None,
-        };
-
+        let input = input.and_then(|v| v.as_object()).cloned();
         let name: &str = &name;
         match name {
             "fade" => Some(Box::new(FadeAction::new(input, thing))),

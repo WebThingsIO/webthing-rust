@@ -968,28 +968,18 @@ impl WebThingServer {
         action_generator: Box<dyn ActionGenerator>,
         router: Option<Box<dyn Fn(App<AppState>) -> App<AppState> + Send + Sync>>,
         base_path: Option<String>,
-    ) -> WebThingServer {
-        let sys = actix::System::new("webthing");
-        let generator_arc = Arc::new(action_generator);
-        let router = match router {
-            Some(r) => Some(Arc::new(r)),
-            None => None,
-        };
-
-        let base_path = match base_path {
-            Some(p) => p.trim_end_matches("/").to_string(),
-            None => "".to_owned(),
-        };
-
-        WebThingServer {
-            things: things,
-            base_path: base_path,
-            port: port,
-            hostname: hostname,
-            ssl_options: ssl_options,
-            generator_arc: generator_arc,
-            router_arc: router,
-            system: sys,
+    ) -> Self {
+        Self {
+            things,
+            base_path: base_path
+                .map(|p| p.trim_end_matches("/").to_string())
+                .unwrap_or_else(|| "".to_owned()),
+            port,
+            hostname,
+            ssl_options,
+            generator_arc: Arc::new(action_generator),
+            router_arc: router.map(|r| Arc::new(r)),
+            system: actix::System::new("webthing"),
         }
     }
 
