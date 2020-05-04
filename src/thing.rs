@@ -670,15 +670,13 @@ impl Thing for BaseThing {
     ) -> Result<(), &str> {
         let action_name = action.read().unwrap().get_name();
 
-        {
-            if !self.available_actions.contains_key(&action_name) {
-                return Err("Action type not found");
-            }
+        if !self.available_actions.contains_key(&action_name) {
+            return Err("Action type not found");
+        }
 
-            let action_type = self.available_actions.get(&action_name).unwrap();
-            if !action_type.validate_action_input(input) {
-                return Err("Action input invalid");
-            }
+        let action_type = self.available_actions.get(&action_name).unwrap();
+        if !action_type.validate_action_input(input) {
+            return Err("Action input invalid");
         }
 
         action
@@ -922,7 +920,27 @@ impl AvailableAction {
     fn validate_action_input(&self, input: Option<&serde_json::Value>) -> bool {
         let mut scope = json_schema::Scope::new();
         let validator = if self.metadata.contains_key("input") {
-            let schema = self.metadata.get("input").unwrap();
+            let mut schema = self
+                .metadata
+                .get("input")
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .clone();
+            if schema.contains_key("properties") {
+                let properties = schema
+                    .get_mut("properties")
+                    .unwrap()
+                    .as_object_mut()
+                    .unwrap();
+                for value in properties.values_mut() {
+                    let value = value.as_object_mut().unwrap();
+                    value.remove("@type");
+                    value.remove("unit");
+                    value.remove("title");
+                }
+            }
+
             match scope.compile_and_return(json!(schema), true) {
                 Ok(s) => Some(s),
                 Err(_) => None,

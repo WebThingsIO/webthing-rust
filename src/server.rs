@@ -587,49 +587,56 @@ fn actions_handler_POST(
 
     let message = message.as_object().unwrap();
 
-    let mut response: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
-    for (action_name, action_params) in message.iter() {
-        let input = action_params.get("input");
-
-        let action = req.state().get_action_generator().generate(
-            Arc::downgrade(&thing.clone()),
-            action_name.to_string(),
-            input,
-        );
-
-        if action.is_some() {
-            let action = action.unwrap();
-            let id = action.get_id();
-            let action = Arc::new(RwLock::new(action));
-
-            {
-                let mut thing = thing.write().unwrap();
-                let result = thing.add_action(action.clone(), input);
-
-                if result.is_err() {
-                    continue;
-                }
-            }
-
-            response.insert(
-                action_name.to_string(),
-                action
-                    .read()
-                    .unwrap()
-                    .as_action_description()
-                    .get(action_name)
-                    .unwrap()
-                    .clone(),
-            );
-
-            thing
-                .write()
-                .unwrap()
-                .start_action(action_name.to_string(), id);
-        }
+    let keys: Vec<&String> = message.keys().collect();
+    if keys.len() != 1 {
+        return HttpResponse::BadRequest().finish();
     }
 
-    HttpResponse::Created().json(response)
+    let action_name = keys[0];
+    let action_params = message.get(action_name).unwrap();
+    let input = action_params.get("input");
+
+    let action = req.state().get_action_generator().generate(
+        Arc::downgrade(&thing.clone()),
+        action_name.to_string(),
+        input,
+    );
+
+    if action.is_some() {
+        let action = action.unwrap();
+        let id = action.get_id();
+        let action = Arc::new(RwLock::new(action));
+
+        {
+            let mut thing = thing.write().unwrap();
+            let result = thing.add_action(action.clone(), input);
+
+            if result.is_err() {
+                return HttpResponse::BadRequest().finish();
+            }
+        }
+
+        let mut response: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+        response.insert(
+            action_name.to_string(),
+            action
+                .read()
+                .unwrap()
+                .as_action_description()
+                .get(action_name)
+                .unwrap()
+                .clone(),
+        );
+
+        thing
+            .write()
+            .unwrap()
+            .start_action(action_name.to_string(), id);
+
+        HttpResponse::Created().json(response)
+    } else {
+        HttpResponse::BadRequest().finish()
+    }
 }
 
 /// Handle a GET request to /actions/<action_name>.
@@ -676,50 +683,59 @@ fn action_handler_POST(
 
     let message = message.as_object().unwrap();
 
-    let mut response: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
-    for (name, action_params) in message.iter() {
-        if name != action_name {
-            continue;
-        }
-
-        let input = action_params.get("input");
-
-        let action = req.state().get_action_generator().generate(
-            Arc::downgrade(&thing.clone()),
-            name.to_string(),
-            input,
-        );
-
-        if action.is_some() {
-            let action = action.unwrap();
-            let id = action.get_id();
-            let action = Arc::new(RwLock::new(action));
-
-            {
-                let mut thing = thing.write().unwrap();
-                let result = thing.add_action(action.clone(), input);
-
-                if result.is_err() {
-                    continue;
-                }
-            }
-
-            response.insert(
-                name.to_string(),
-                action
-                    .read()
-                    .unwrap()
-                    .as_action_description()
-                    .get(name)
-                    .unwrap()
-                    .clone(),
-            );
-
-            thing.write().unwrap().start_action(name.to_string(), id);
-        }
+    let keys: Vec<&String> = message.keys().collect();
+    if keys.len() != 1 {
+        return HttpResponse::BadRequest().finish();
     }
 
-    HttpResponse::Created().json(response)
+    if keys[0] != action_name {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    let action_params = message.get(action_name).unwrap();
+    let input = action_params.get("input");
+
+    let action = req.state().get_action_generator().generate(
+        Arc::downgrade(&thing.clone()),
+        action_name.to_string(),
+        input,
+    );
+
+    if action.is_some() {
+        let action = action.unwrap();
+        let id = action.get_id();
+        let action = Arc::new(RwLock::new(action));
+
+        {
+            let mut thing = thing.write().unwrap();
+            let result = thing.add_action(action.clone(), input);
+
+            if result.is_err() {
+                return HttpResponse::BadRequest().finish();
+            }
+        }
+
+        let mut response: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+        response.insert(
+            action_name.to_string(),
+            action
+                .read()
+                .unwrap()
+                .as_action_description()
+                .get(action_name)
+                .unwrap()
+                .clone(),
+        );
+
+        thing
+            .write()
+            .unwrap()
+            .start_action(action_name.to_string(), id);
+
+        HttpResponse::Created().json(response)
+    } else {
+        HttpResponse::BadRequest().finish()
+    }
 }
 
 /// Handle a GET request to /actions/<action_name>/<action_id>.
