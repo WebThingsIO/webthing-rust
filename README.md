@@ -192,3 +192,7 @@ thread::spawn(move || {
 ```
 
 This will update our property with random sensor readings. The new property value is then sent to all websocket listeners.
+
+# Adding to Gateway
+
+To add your web thing to the WebThings Gateway, install the "Web Thing" add-on and follow the instructions [here](https://github.com/mozilla-iot/thing-url-adapter#readme).
