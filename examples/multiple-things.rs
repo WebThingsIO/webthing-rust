@@ -12,31 +12,8 @@ use uuid::Uuid;
 use webthing::property::ValueForwarder;
 use webthing::server::ActionGenerator;
 use webthing::{
-    Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Event, Thing, ThingsType,
-    WebThingServer,
+    Action, BaseAction, BaseEvent, BaseProperty, BaseThing, Thing, ThingsType, WebThingServer,
 };
-
-pub struct OverheatedEvent(BaseEvent);
-
-impl OverheatedEvent {
-    fn new(data: Option<serde_json::Value>) -> OverheatedEvent {
-        OverheatedEvent(BaseEvent::new("overheated".to_owned(), data))
-    }
-}
-
-impl Event for OverheatedEvent {
-    fn get_name(&self) -> String {
-        self.0.get_name()
-    }
-
-    fn get_data(&self) -> Option<serde_json::Value> {
-        self.0.get_data()
-    }
-
-    fn get_time(&self) -> String {
-        self.0.get_time()
-    }
-}
 
 pub struct FadeAction(BaseAction);
 
@@ -121,7 +98,10 @@ impl Action for FadeAction {
                 "brightness".to_owned(),
                 input.get("brightness").unwrap().clone(),
             );
-            thing.add_event(Box::new(OverheatedEvent::new(Some(json!(102)))));
+            thing.add_event(Box::new(BaseEvent::new(
+                "overheated".to_owned(),
+                Some(json!(102)),
+            )));
 
             thing.finish_action(name, id);
         });
