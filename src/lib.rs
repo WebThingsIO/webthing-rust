@@ -2,19 +2,7 @@
 
 //! Implementation of an HTTP [Web Thing](https://iot.mozilla.org/wot/).
 
-extern crate actix;
-extern crate actix_net;
-extern crate actix_web;
-extern crate chrono;
-extern crate get_if_addrs;
-extern crate hostname;
-extern crate libmdns;
-#[cfg(feature = "ssl")]
-extern crate openssl;
-#[macro_use]
-extern crate serde_json;
-extern crate uuid;
-extern crate valico;
+extern crate std;
 
 /// Action trait and base implementation.
 pub mod action;

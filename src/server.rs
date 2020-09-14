@@ -13,6 +13,7 @@ use libmdns;
 #[cfg(feature = "ssl")]
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
+use serde_json::json;
 use std::marker::{Send, Sync};
 use std::sync::{Arc, RwLock, Weak};
 use std::time::Duration;

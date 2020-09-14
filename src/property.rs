@@ -1,11 +1,12 @@
 use serde_json;
+use serde_json::json;
 use std::marker::{Send, Sync};
 use valico::json_schema;
 
 /// Used to forward a new property value to the physical/virtual device.
 pub trait ValueForwarder: Send + Sync {
     /// Set the new value of the property.
-    fn set_value(&mut self, serde_json::Value) -> Result<serde_json::Value, &'static str>;
+    fn set_value(&mut self, value: serde_json::Value) -> Result<serde_json::Value, &'static str>;
 }
 
 /// High-level Property trait.

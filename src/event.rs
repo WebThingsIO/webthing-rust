@@ -1,4 +1,5 @@
 use serde_json;
+use serde_json::json;
 use std::marker::{Send, Sync};
 
 use super::utils::timestamp;

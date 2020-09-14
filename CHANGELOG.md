@@ -1,6 +1,8 @@
 # webthing Changelog
 
 ## [Unreleased]
+### Changed
+- Now using 2018 edition of Rust.
 
 ## [0.12.3] - 2020-05-04
 ### Changed
