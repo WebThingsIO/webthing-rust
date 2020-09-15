@@ -17,3 +17,5 @@ Cargo.lock
 Cargo.lock
 
 *.swp
+
+/webthing-tester/

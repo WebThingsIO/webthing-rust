@@ -5,7 +5,9 @@ cargo build
 cargo build --features ssl
 
 # clone the webthing-tester
-git clone https://github.com/mozilla-iot/webthing-tester
+if [ ! -d webthing-tester ]; then
+    git clone https://github.com/mozilla-iot/webthing-tester
+fi
 pip3 install --user -r webthing-tester/requirements.txt
 
 # build and test the single-thing example

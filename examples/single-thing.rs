@@ -1,9 +1,5 @@
-extern crate env_logger;
-#[macro_use]
-extern crate serde_json;
-extern crate uuid;
-extern crate webthing;
-
+use actix_rt;
+use serde_json::json;
 use std::sync::{Arc, RwLock, Weak};
 use std::{thread, time};
 use uuid::Uuid;
@@ -216,7 +212,8 @@ fn make_thing() -> Arc<RwLock<Box<dyn Thing + 'static>>> {
     Arc::new(RwLock::new(Box::new(thing)))
 }
 
-fn main() {
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
     env_logger::init();
     let thing = make_thing();
 
@@ -229,8 +226,6 @@ fn main() {
         None,
         Box::new(Generator),
         None,
-        None,
     );
-    server.create();
-    server.start();
+    server.start(None).await
 }

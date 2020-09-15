@@ -3,6 +3,9 @@
 ## [Unreleased]
 ### Changed
 - Now using 2018 edition of Rust.
+- Updated to modern version of actix-web.
+- Server is now created and started with `.start()`; `.create()` is no longer present.
+- Server no longer takes an optional router. Instead, an optional `configure` closure can be passed to `.start()`, which will be used via `App.configure(<your closure>)`.
 
 ## [0.12.3] - 2020-05-04
 ### Changed

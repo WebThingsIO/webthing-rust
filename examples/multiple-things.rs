@@ -1,11 +1,6 @@
-extern crate env_logger;
-extern crate rand;
-#[macro_use]
-extern crate serde_json;
-extern crate uuid;
-extern crate webthing;
-
+use actix_rt;
 use rand::Rng;
+use serde_json::json;
 use std::sync::{Arc, RwLock, Weak};
 use std::{thread, time};
 use uuid::Uuid;
@@ -260,7 +255,8 @@ fn make_sensor() -> Arc<RwLock<Box<dyn Thing + 'static>>> {
     Arc::new(RwLock::new(Box::new(thing)))
 }
 
-fn main() {
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
     env_logger::init();
 
     let mut things: Vec<Arc<RwLock<Box<dyn Thing + 'static>>>> = Vec::new();
@@ -308,8 +304,6 @@ fn main() {
         None,
         Box::new(Generator),
         None,
-        None,
     );
-    server.create();
-    server.start();
+    server.start(None).await
 }
