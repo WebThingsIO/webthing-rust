@@ -947,10 +947,10 @@ impl WebThingServer {
     }
 
     /// Start listening for incoming connections.
-    pub fn start<F>(&mut self, configure: Option<Arc<F>>) -> Server
-    where
-        F: Fn(&mut web::ServiceConfig) + Send + Sync + 'static,
-    {
+    pub fn start(
+        &mut self,
+        configure: Option<Arc<dyn Fn(&mut web::ServiceConfig) + Send + Sync + 'static>>,
+    ) -> Server {
         let port = match self.port {
             Some(p) => p,
             None => 80,
