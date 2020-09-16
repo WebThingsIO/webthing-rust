@@ -33,8 +33,6 @@ pub trait Action: Send + Sync {
     }
 
     /// Set the prefix of any hrefs associated with this action.
-    ///
-    /// prefix -- the prefix
     fn set_href_prefix(&mut self, prefix: String);
 
     /// Get this action's ID.
@@ -62,8 +60,6 @@ pub trait Action: Send + Sync {
     fn get_input(&self) -> Option<serde_json::Map<String, serde_json::Value>>;
 
     /// Set the status of this action.
-    ///
-    /// status -- new status
     fn set_status(&mut self, status: String);
 
     /// Start performing the action.
@@ -98,10 +94,6 @@ pub struct BaseAction {
 
 impl BaseAction {
     /// Create a new BaseAction.
-    ///
-    /// id -- ID of this action
-    /// name -- name of the action
-    /// input -- any action inputs
     pub fn new(
         id: String,
         name: String,
@@ -127,8 +119,6 @@ impl BaseAction {
 /// An Action represents an individual action on a thing.
 impl Action for BaseAction {
     /// Set the prefix of any hrefs associated with this action.
-    ///
-    /// prefix -- the prefix
     fn set_href_prefix(&mut self, prefix: String) {
         self.href_prefix = prefix;
     }
@@ -174,8 +164,6 @@ impl Action for BaseAction {
     }
 
     /// Set the status of this action.
-    ///
-    /// status -- new status
     fn set_status(&mut self, status: String) {
         self.status = status;
     }

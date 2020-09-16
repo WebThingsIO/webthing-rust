@@ -37,9 +37,11 @@ pub enum ThingsType {
 pub trait ActionGenerator: Send + Sync {
     /// Generate a new action, if possible.
     ///
-    /// thing -- thing associated with this action
-    /// name -- name of the requested action
-    /// input -- input for the action
+    /// # Arguments
+    ///
+    /// * `thing` - thing associated with this action
+    /// * `name` - name of the requested action
+    /// * `input` - input for the action
     fn generate(
         &self,
         thing: Weak<RwLock<Box<dyn Thing>>>,
@@ -49,7 +51,7 @@ pub trait ActionGenerator: Send + Sync {
 }
 
 /// Shared app state, used by server threads.
-pub struct AppState {
+struct AppState {
     things: Arc<ThingsType>,
     hosts: Arc<Vec<String>>,
     action_generator: Arc<Box<dyn ActionGenerator>>,
@@ -57,10 +59,6 @@ pub struct AppState {
 
 impl AppState {
     /// Get the thing this request is for.
-    ///
-    /// thing_id -- ID of the thing to get, in string form
-    ///
-    /// Returns the thing, or None if not found.
     fn get_thing(&self, thing_id: Option<&str>) -> Option<Arc<RwLock<Box<dyn Thing>>>> {
         match self.things.as_ref() {
             ThingsType::Multiple(ref inner_things, _) => {
@@ -903,14 +901,16 @@ pub struct WebThingServer {
 impl WebThingServer {
     /// Create a new WebThingServer.
     ///
-    /// things -- list of Things managed by this server
-    /// name -- name of this device -- this is only needed if the server is
-    ///         managing multiple things
-    /// port -- port to listen on (defaults to 80)
-    /// hostname -- optional host name, i.e. mything.com
-    /// ssl_options -- tuple of SSL options to pass to the actix web server
-    /// action_generator -- action generator struct
-    /// base_path -- base URL to use, rather than '/'
+    /// # Arguments
+    ///
+    /// * `things` - list of Things managed by this server
+    /// * `name` - name of this device -- this is only needed if the server is managing multiple
+    ///   things
+    /// * `port` - port to listen on (defaults to 80)
+    /// * `hostname` - optional host name, i.e. mything.com
+    /// * `ssl_options` - tuple of SSL options to pass to the actix web server
+    /// * `action_generator` - action generator struct
+    /// * `base_path` - base URL to use, rather than '/'
     pub fn new(
         things: ThingsType,
         port: Option<u16>,

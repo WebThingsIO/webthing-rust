@@ -66,8 +66,6 @@ pub trait Property: Send + Sync {
     }
 
     /// Set the prefix of any hrefs associated with this property.
-    ///
-    /// prefix -- the prefix
     fn set_href_prefix(&mut self, prefix: String);
 
     /// Get the href of this property.
@@ -77,13 +75,9 @@ pub trait Property: Send + Sync {
     fn get_value(&self) -> serde_json::Value;
 
     /// Set the current value of the property with the value forwarder.
-    ///
-    /// value -- the value to set
     fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str>;
 
     /// Set the cached value of the property.
-    ///
-    /// value -- the value to set
     fn set_cached_value(&mut self, value: serde_json::Value) -> Result<(), &'static str>;
 
     /// Get the name of this property.
@@ -110,10 +104,12 @@ pub struct BaseProperty {
 impl BaseProperty {
     /// Create a new BaseProperty.
     ///
-    /// name -- name of the property
-    /// initial_value -- initial property value
-    /// value_forwarder -- optional value forwarder; property will be read-only if None
-    /// metadata -- property metadata, i.e. type, description, unit, etc., as a JSON map
+    /// # Arguments
+    ///
+    /// * `name` - name of the property
+    /// * `initial_value` - initial property value
+    /// * `value_forwarder` - optional value forwarder; property will be read-only if None
+    /// * `metadata` - property metadata, i.e. type, description, unit, etc., as a JSON map
     pub fn new(
         name: String,
         initial_value: serde_json::Value,
@@ -140,8 +136,6 @@ impl BaseProperty {
 
 impl Property for BaseProperty {
     /// Set the prefix of any hrefs associated with this property.
-    ///
-    /// prefix -- the prefix
     fn set_href_prefix(&mut self, prefix: String) {
         self.href_prefix = prefix;
     }
@@ -157,8 +151,6 @@ impl Property for BaseProperty {
     }
 
     /// Set the current value of the property.
-    ///
-    /// value -- the value to set
     fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str> {
         let result = self.validate_value(&value);
         if result.is_err() {
@@ -181,8 +173,6 @@ impl Property for BaseProperty {
     }
 
     /// Set the cached value of the property.
-    ///
-    /// value -- the value to set
     fn set_cached_value(&mut self, value: serde_json::Value) -> Result<(), &'static str> {
         self.last_value = value;
         Ok(())

@@ -14,8 +14,6 @@ use super::property::Property;
 /// High-level Thing trait.
 pub trait Thing: Send + Sync {
     /// Return the thing state as a Thing Description.
-    ///
-    /// Returns the state as a JSON map.
     fn as_thing_description(&self) -> serde_json::Map<String, serde_json::Value>;
 
     /// Return this thing as an Any.
@@ -34,38 +32,24 @@ pub trait Thing: Send + Sync {
     fn get_ui_href(&self) -> Option<String>;
 
     /// Set the prefix of any hrefs associated with this thing.
-    ///
-    /// prefix -- the prefix
     fn set_href_prefix(&mut self, prefix: String);
 
     /// Set the href of this thing's custom UI.
-    ///
-    /// href -- the href
     fn set_ui_href(&mut self, href: String);
 
     /// Get the ID of the thing.
-    ///
-    /// Returns the ID as a string.
     fn get_id(&self) -> String;
 
     /// Get the title of the thing.
-    ///
-    /// Returns the title as a string.
     fn get_title(&self) -> String;
 
     /// Get the type context of the thing.
-    ///
-    /// Returns the context as a string.
     fn get_context(&self) -> String;
 
     /// Get the type(s) of the thing.
-    ///
-    /// Returns the list of types.
     fn get_type(&self) -> Vec<String>;
 
     /// Get the description of the thing.
-    ///
-    /// Returns the description as a string.
     fn get_description(&self) -> String;
 
     /// Get the thing's properties as a JSON map.
@@ -74,41 +58,21 @@ pub trait Thing: Send + Sync {
     fn get_property_descriptions(&self) -> serde_json::Map<String, serde_json::Value>;
 
     /// Get the thing's actions as an array.
-    ///
-    /// action_name -- Optional action name to get descriptions for
-    ///
-    /// Returns the action descriptions.
     fn get_action_descriptions(&self, action_name: Option<String>) -> serde_json::Value;
 
     /// Get the thing's events as an array.
-    ///
-    /// event_name -- Optional event name to get descriptions for
-    ///
-    /// Returns the event descriptions.
     fn get_event_descriptions(&self, event_name: Option<String>) -> serde_json::Value;
 
     /// Add a property to this thing.
-    ///
-    /// property -- property to add
     fn add_property(&mut self, property: Box<dyn Property>);
 
     /// Remove a property from this thing.
-    ///
-    /// property -- property to remove
     fn remove_property(&mut self, property_name: String);
 
     /// Find a property by name.
-    ///
-    /// property_name -- the property to find
-    ///
-    /// Returns a boxed property trait object, if found, else None.
     fn find_property(&mut self, property_name: &String) -> Option<&mut Box<dyn Property>>;
 
     /// Get a property's value.
-    ///
-    /// property_name -- the property to get the value of
-    ///
-    /// Returns the properties value, if found, else None.
     fn get_property(&self, property_name: &String) -> Option<serde_json::Value>;
 
     /// Get a mapping of all properties and their values.
@@ -117,16 +81,9 @@ pub trait Thing: Send + Sync {
     fn get_properties(&self) -> serde_json::Map<String, serde_json::Value>;
 
     /// Determine whether or not this thing has a given property.
-    ///
-    /// property_name -- the property to look for
-    ///
-    /// Returns a boolean, indicating whether or not the thing has the property.
     fn has_property(&self, property_name: &String) -> bool;
 
     /// Set a property value.
-    ///
-    /// property_name -- name of the property to set
-    /// value -- value to set
     fn set_property(
         &mut self,
         property_name: String,
@@ -143,11 +100,6 @@ pub trait Thing: Send + Sync {
     }
 
     /// Get an action.
-    ///
-    /// action_name -- name of the action
-    /// action_id -- ID of the action
-    ///
-    /// Returns the requested action if found, else None.
     fn get_action(
         &self,
         action_name: String,
@@ -155,14 +107,14 @@ pub trait Thing: Send + Sync {
     ) -> Option<Arc<RwLock<Box<dyn Action>>>>;
 
     /// Add a new event and notify subscribers.
-    ///
-    /// event -- the event that occurred
     fn add_event(&mut self, event: Box<dyn Event>);
 
     /// Add an available event.
     ///
-    /// name -- name of the event
-    /// metadata -- event metadata, i.e. type, description, etc., as a JSON map
+    /// # Arguments
+    ///
+    /// * `name` - name of the event
+    /// * `metadata` - event metadata, i.e. type, description, etc., as a JSON map
     fn add_available_event(
         &mut self,
         name: String,
@@ -170,9 +122,6 @@ pub trait Thing: Send + Sync {
     );
 
     /// Perform an action on the thing.
-    ///
-    /// action_name -- name of the action
-    /// input_ -- any action inputs
     ///
     /// Returns the action that was created.
     fn add_action(
@@ -183,16 +132,15 @@ pub trait Thing: Send + Sync {
 
     /// Remove an existing action.
     ///
-    /// action_name -- name of the action
-    /// action_id -- ID of the action
-    ///
     /// Returns a boolean indicating the presence of the action.
     fn remove_action(&mut self, action_name: String, action_id: String) -> bool;
 
     /// Add an available action.
     ///
-    /// name -- name of the action
-    /// metadata -- action metadata, i.e. type, description, etc., as a JSON map
+    /// # Arguments
+    ///
+    /// * `name` - name of the action
+    /// * `metadata` - action metadata, i.e. type, description, etc., as a JSON map
     fn add_available_action(
         &mut self,
         name: String,
@@ -201,64 +149,57 @@ pub trait Thing: Send + Sync {
 
     /// Add a new websocket subscriber.
     ///
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `ws_id` - ID of the websocket
     fn add_subscriber(&mut self, ws_id: String);
 
     /// Remove a websocket subscriber.
     ///
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `ws_id` - ID of the websocket
     fn remove_subscriber(&mut self, ws_id: String);
 
     /// Add a new websocket subscriber to an event.
     ///
-    /// name -- name of the event
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `name` - name of the event
+    /// * `ws_id` - ID of the websocket
     fn add_event_subscriber(&mut self, name: String, ws_id: String);
 
     /// Remove a websocket subscriber from an event.
     ///
-    /// name -- name of the event
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `name` - name of the event
+    /// * `ws_id` - ID of the websocket
     fn remove_event_subscriber(&mut self, name: String, ws_id: String);
 
     /// Notify all subscribers of a property change.
-    ///
-    /// name -- name of the property that changed
-    /// value -- new property value
     fn property_notify(&mut self, name: String, value: serde_json::Value);
 
     /// Notify all subscribers of an action status change.
-    ///
-    /// action -- JSON description the action whose status changed
     fn action_notify(&mut self, action: serde_json::Map<String, serde_json::Value>);
 
     /// Notify all subscribers of an event.
-    ///
-    /// name -- name of the event that occurred
-    /// event -- JSON description of the event
     fn event_notify(&mut self, name: String, event: serde_json::Map<String, serde_json::Value>);
 
     /// Start the specified action.
-    ///
-    /// name -- name of the action
-    /// id -- ID of the action
     fn start_action(&mut self, name: String, id: String);
 
     /// Cancel the specified action.
-    ///
-    /// name -- name of the action
-    /// id -- ID of the action
     fn cancel_action(&mut self, name: String, id: String);
 
     /// Finish the specified action.
-    ///
-    /// name -- name of the action
-    /// id -- ID of the action
     fn finish_action(&mut self, name: String, id: String);
 
     /// Drain any message queues for the specified weboscket ID.
     ///
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `ws_id` - ID of the websocket
     fn drain_queue(&mut self, ws_id: String) -> Vec<Drain<String>>;
 }
 
@@ -285,10 +226,12 @@ pub struct BaseThing {
 impl BaseThing {
     /// Create a new BaseThing.
     ///
-    /// id -- the thing's unique ID - must be a URI
-    /// title -- the thing's title
-    /// type_ -- the thing's type(s)
-    /// description -- description of the thing
+    /// # Arguments
+    ///
+    /// * `id` - the thing's unique ID - must be a URI
+    /// * `title` - the thing's title
+    /// * `type_` - the thing's type(s)
+    /// * `description` - description of the thing
     pub fn new(
         id: String,
         title: String,
@@ -308,8 +251,6 @@ impl BaseThing {
 
 impl Thing for BaseThing {
     /// Return the thing state as a Thing Description.
-    ///
-    /// Returns the state as a JSON map.
     fn as_thing_description(&self) -> serde_json::Map<String, serde_json::Value> {
         let mut description = serde_json::Map::new();
 
@@ -430,8 +371,6 @@ impl Thing for BaseThing {
     }
 
     /// Set the prefix of any hrefs associated with this thing.
-    ///
-    /// prefix -- the prefix
     fn set_href_prefix(&mut self, prefix: String) {
         self.href_prefix = prefix.clone();
 
@@ -447,43 +386,31 @@ impl Thing for BaseThing {
     }
 
     /// Set the href of this thing's custom UI.
-    ///
-    /// href -- the href
     fn set_ui_href(&mut self, href: String) {
         self.ui_href = Some(href);
     }
 
     /// Get the ID of the thing.
-    ///
-    /// Returns the ID as a string.
     fn get_id(&self) -> String {
         self.id.clone()
     }
 
     /// Get the title of the thing.
-    ///
-    /// Returns the title as a string.
     fn get_title(&self) -> String {
         self.title.clone()
     }
 
     /// Get the type context of the thing.
-    ///
-    /// Returns the context as a string.
     fn get_context(&self) -> String {
         self.context.clone()
     }
 
     /// Get the type(s) of the thing.
-    ///
-    /// Returns the list of types.
     fn get_type(&self) -> Vec<String> {
         self.type_.clone()
     }
 
     /// Get the description of the thing.
-    ///
-    /// Returns the description as a string.
     fn get_description(&self) -> String {
         self.description.clone()
     }
@@ -502,10 +429,6 @@ impl Thing for BaseThing {
     }
 
     /// Get the thing's actions as an array.
-    ///
-    /// action_name -- Optional action name to get descriptions for
-    ///
-    /// Returns the action descriptions.
     fn get_action_descriptions(&self, action_name: Option<String>) -> serde_json::Value {
         let mut descriptions = Vec::new();
 
@@ -530,10 +453,6 @@ impl Thing for BaseThing {
     }
 
     /// Get the thing's events as an array.
-    ///
-    /// event_name -- Optional event name to get descriptions for
-    ///
-    /// Returns the event descriptions.
     fn get_event_descriptions(&self, event_name: Option<String>) -> serde_json::Value {
         let mut descriptions = Vec::new();
 
@@ -556,34 +475,22 @@ impl Thing for BaseThing {
     }
 
     /// Add a property to this thing.
-    ///
-    /// property -- property to add
     fn add_property(&mut self, mut property: Box<dyn Property>) {
         property.set_href_prefix(self.get_href_prefix());
         self.properties.insert(property.get_name(), property);
     }
 
     /// Remove a property from this thing.
-    ///
-    /// property -- property to remove
     fn remove_property(&mut self, property_name: String) {
         self.properties.remove(&property_name);
     }
 
     /// Find a property by name.
-    ///
-    /// property_name -- the property to find
-    ///
-    /// Returns a boxed property trait object, if found, else None.
     fn find_property(&mut self, property_name: &String) -> Option<&mut Box<dyn Property>> {
         self.properties.get_mut(property_name)
     }
 
     /// Get a property's value.
-    ///
-    /// property_name -- the property to get the value of
-    ///
-    /// Returns the properties value, if found, else None.
     fn get_property(&self, property_name: &String) -> Option<serde_json::Value> {
         if self.has_property(property_name) {
             Some(self.properties.get(property_name).unwrap().get_value())
@@ -604,20 +511,11 @@ impl Thing for BaseThing {
     }
 
     /// Determine whether or not this thing has a given property.
-    ///
-    /// property_name -- the property to look for
-    ///
-    /// Returns a boolean, indicating whether or not the thing has the property.
     fn has_property(&self, property_name: &String) -> bool {
         self.properties.contains_key(property_name)
     }
 
     /// Get an action.
-    ///
-    /// action_name -- name of the action
-    /// action_id -- ID of the action
-    ///
-    /// Returns the requested action if found, else None.
     fn get_action(
         &self,
         action_name: String,
@@ -638,8 +536,6 @@ impl Thing for BaseThing {
     }
 
     /// Add a new event and notify subscribers.
-    ///
-    /// event -- the event that occurred
     fn add_event(&mut self, event: Box<dyn Event>) {
         self.event_notify(event.get_name(), event.as_event_description());
         self.events.push(event);
@@ -647,8 +543,10 @@ impl Thing for BaseThing {
 
     /// Add an available event.
     ///
-    /// name -- name of the event
-    /// metadata -- event metadata, i.e. type, description, etc., as a JSON map
+    /// # Arguments
+    ///
+    /// * `name` - name of the event
+    /// * `metadata` - event metadata, i.e. type, description, etc., as a JSON map
     fn add_available_event(
         &mut self,
         name: String,
@@ -659,9 +557,6 @@ impl Thing for BaseThing {
     }
 
     /// Perform an action on the thing.
-    ///
-    /// action_name -- name of the action
-    /// input_ -- any action inputs
     ///
     /// Returns the action that was created.
     fn add_action(
@@ -692,9 +587,6 @@ impl Thing for BaseThing {
 
     /// Remove an existing action.
     ///
-    /// action_name -- name of the action
-    /// action_id -- ID of the action
-    ///
     /// Returns a boolean indicating the presence of the action.
     fn remove_action(&mut self, action_name: String, action_id: String) -> bool {
         let action = self.get_action(action_name.clone(), action_id.clone());
@@ -713,8 +605,10 @@ impl Thing for BaseThing {
 
     /// Add an available action.
     ///
-    /// name -- name of the action
-    /// metadata -- action metadata, i.e. type, description, etc., as a JSON map
+    /// # Arguments
+    ///
+    /// * `name` - name of the action
+    /// * `metadata` - action metadata, i.e. type, description, etc., as a JSON map
     fn add_available_action(
         &mut self,
         name: String,
@@ -727,14 +621,18 @@ impl Thing for BaseThing {
 
     /// Add a new websocket subscriber.
     ///
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `ws_id` - ID of the websocket
     fn add_subscriber(&mut self, ws_id: String) {
         self.subscribers.insert(ws_id, Vec::new());
     }
 
     /// Remove a websocket subscriber.
     ///
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `ws_id` - ID of the websocket
     fn remove_subscriber(&mut self, ws_id: String) {
         self.subscribers.remove(&ws_id);
 
@@ -745,8 +643,10 @@ impl Thing for BaseThing {
 
     /// Add a new websocket subscriber to an event.
     ///
-    /// name -- name of the event
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `name` - name of the event
+    /// * `ws_id` - ID of the websocket
     fn add_event_subscriber(&mut self, name: String, ws_id: String) {
         if self.available_events.contains_key(&name) {
             self.available_events
@@ -758,8 +658,10 @@ impl Thing for BaseThing {
 
     /// Remove a websocket subscriber from an event.
     ///
-    /// name -- name of the event
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `name` - name of the event
+    /// * `ws_id` - ID of the websocket
     fn remove_event_subscriber(&mut self, name: String, ws_id: String) {
         if self.available_events.contains_key(&name) {
             self.available_events
@@ -770,9 +672,6 @@ impl Thing for BaseThing {
     }
 
     /// Notify all subscribers of a property change.
-    ///
-    /// name -- name of the property that changed
-    /// value -- new property value
     fn property_notify(&mut self, name: String, value: serde_json::Value) {
         let message = json!({
             "messageType": "propertyStatus",
@@ -788,8 +687,6 @@ impl Thing for BaseThing {
     }
 
     /// Notify all subscribers of an action status change.
-    ///
-    /// action -- JSON description the action whose status changed
     fn action_notify(&mut self, action: serde_json::Map<String, serde_json::Value>) {
         let message = json!({
             "messageType": "actionStatus",
@@ -803,9 +700,6 @@ impl Thing for BaseThing {
     }
 
     /// Notify all subscribers of an event.
-    ///
-    /// name -- name of the event that occurred
-    /// event -- JSON description of the event
     fn event_notify(&mut self, name: String, event: serde_json::Map<String, serde_json::Value>) {
         if !self.available_events.contains_key(&name) {
             return;
@@ -826,9 +720,6 @@ impl Thing for BaseThing {
     }
 
     /// Start the specified action.
-    ///
-    /// name -- name of the action
-    /// id -- ID of the action
     fn start_action(&mut self, name: String, id: String) {
         match self.get_action(name, id) {
             Some(action) => {
@@ -842,9 +733,6 @@ impl Thing for BaseThing {
     }
 
     /// Cancel the specified action.
-    ///
-    /// name -- name of the action
-    /// id -- ID of the action
     fn cancel_action(&mut self, name: String, id: String) {
         match self.get_action(name, id) {
             Some(action) => {
@@ -856,9 +744,6 @@ impl Thing for BaseThing {
     }
 
     /// Finish the specified action.
-    ///
-    /// name -- name of the action
-    /// id -- ID of the action
     fn finish_action(&mut self, name: String, id: String) {
         match self.get_action(name, id) {
             Some(action) => {
@@ -872,7 +757,10 @@ impl Thing for BaseThing {
 
     /// Drain any message queues for the specified weboscket ID.
     ///
-    /// ws_id -- ID of the websocket
+    ///
+    /// # Arguments
+    ///
+    /// * `ws_id` - ID of the websocket
     fn drain_queue(&mut self, ws_id: String) -> Vec<Drain<String>> {
         let mut drains: Vec<Drain<String>> = Vec::new();
         match self.subscribers.get_mut(&ws_id) {
@@ -903,7 +791,9 @@ struct AvailableAction {
 impl AvailableAction {
     /// Create a new AvailableAction.
     ///
-    /// metadata -- action metadata
+    /// # Arguments
+    ///
+    /// * `metadata` - action metadata
     fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableAction {
         AvailableAction { metadata: metadata }
     }
@@ -914,8 +804,6 @@ impl AvailableAction {
     }
 
     /// Validate the input for a new action.
-    ///
-    /// input -- the input to validate
     ///
     /// Returns a boolean indicating validation success.
     fn validate_action_input(&self, input: Option<&serde_json::Value>) -> bool {
@@ -969,7 +857,9 @@ struct AvailableEvent {
 impl AvailableEvent {
     /// Create a new AvailableEvent.
     ///
-    /// metadata -- event metadata
+    /// # Arguments
+    ///
+    /// * `metadata` - event metadata
     fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableEvent {
         AvailableEvent {
             metadata: metadata,
@@ -984,14 +874,18 @@ impl AvailableEvent {
 
     /// Add a websocket subscriber to the event.
     ///
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `ws_id` - ID of the websocket
     fn add_subscriber(&mut self, ws_id: String) {
         self.subscribers.insert(ws_id, Vec::new());
     }
 
     /// Remove a websocket subscriber from the event.
     ///
-    /// ws_id -- ID of the websocket
+    /// # Arguments
+    ///
+    /// * `ws_id` - ID of the websocket
     fn remove_subscriber(&mut self, ws_id: String) {
         self.subscribers.remove(&ws_id);
     }
