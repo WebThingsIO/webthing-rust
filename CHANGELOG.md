@@ -1,6 +1,8 @@
 # webthing Changelog
 
 ## [Unreleased]
+
+## [0.13.0] - 2020-09-16
 ### Changed
 - Now using 2018 edition of Rust.
 - Updated to modern version of actix-web.
@@ -49,7 +51,8 @@
 ### Changed
 - Property, Action, and Event description now use `links` rather than `href`. - [Spec PR](https://github.com/mozilla-iot/wot/pull/119)
 
-[Unreleased]: https://github.com/mozilla-iot/webthing-rust/compare/v0.12.3...HEAD
+[Unreleased]: https://github.com/mozilla-iot/webthing-rust/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/mozilla-iot/webthing-rust/compare/v0.12.3...v0.13.0
 [0.12.3]: https://github.com/mozilla-iot/webthing-rust/compare/v0.12.2...v0.12.3
 [0.12.2]: https://github.com/mozilla-iot/webthing-rust/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/mozilla-iot/webthing-rust/compare/v0.12.0...v0.12.1
