@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.13.1] - 2020-09-23
+### Changed
+- Update author and URLs.
+
 ## [0.13.0] - 2020-09-16
 ### Changed
 - Now using 2018 edition of Rust.
@@ -49,16 +53,17 @@
 
 ## [0.10.0] - 2018-11-30
 ### Changed
-- Property, Action, and Event description now use `links` rather than `href`. - [Spec PR](https://github.com/mozilla-iot/wot/pull/119)
+- Property, Action, and Event description now use `links` rather than `href`. - [Spec PR](https://github.com/WebThingsIO/wot/pull/119)
 
-[Unreleased]: https://github.com/mozilla-iot/webthing-rust/compare/v0.13.0...HEAD
-[0.13.0]: https://github.com/mozilla-iot/webthing-rust/compare/v0.12.3...v0.13.0
-[0.12.3]: https://github.com/mozilla-iot/webthing-rust/compare/v0.12.2...v0.12.3
-[0.12.2]: https://github.com/mozilla-iot/webthing-rust/compare/v0.12.1...v0.12.2
-[0.12.1]: https://github.com/mozilla-iot/webthing-rust/compare/v0.12.0...v0.12.1
-[0.12.0]: https://github.com/mozilla-iot/webthing-rust/compare/v0.11.0...v0.12.0
-[0.11.0]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.3...v0.11.0
-[0.10.3]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.2...v0.10.3
-[0.10.2]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.1...v0.10.2
-[0.10.1]: https://github.com/mozilla-iot/webthing-rust/compare/v0.10.0...v0.10.1
-[0.10.0]: https://github.com/mozilla-iot/webthing-rust/compare/v0.9.3...v0.10.0
+[Unreleased]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.1...HEAD
+[0.13.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.0...v0.13.1
+[0.13.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.3...v0.13.0
+[0.12.3]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.2...v0.12.3
+[0.12.2]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.1...v0.12.2
+[0.12.1]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.0...v0.12.1
+[0.12.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.10.3...v0.11.0
+[0.10.3]: https://github.com/WebThingsIO/webthing-rust/compare/v0.10.2...v0.10.3
+[0.10.2]: https://github.com/WebThingsIO/webthing-rust/compare/v0.10.1...v0.10.2
+[0.10.1]: https://github.com/WebThingsIO/webthing-rust/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.9.3...v0.10.0

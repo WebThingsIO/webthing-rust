@@ -1,6 +1,6 @@
 # webthing
 
-[![Build Status](https://github.com/mozilla-iot/webthing-rust/workflows/Rust%20package/badge.svg)](https://github.com/mozilla-iot/webthing-rust/workflows/Rust%20package)
+[![Build Status](https://github.com/WebThingsIO/webthing-rust/workflows/Rust%20package/badge.svg)](https://github.com/WebThingsIO/webthing-rust/workflows/Rust%20package)
 [![Crates.io](https://img.shields.io/crates/v/webthing.svg)](https://crates.io/crates/webthing)
 [![license](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
 
@@ -21,7 +21,7 @@ If you need TLS support for the server, you'll need to compile with the `ssl` fe
 
 # Example
 
-In this example we will set up a dimmable light and a humidity sensor (both using fake data, of course). Both working examples can be found in [here](https://github.com/mozilla-iot/webthing-rust/tree/master/examples).
+In this example we will set up a dimmable light and a humidity sensor (both using fake data, of course). Both working examples can be found in [here](https://github.com/WebThingsIO/webthing-rust/tree/master/examples).
 
 ## Dimmable Light
 
@@ -195,4 +195,4 @@ This will update our property with random sensor readings. The new property valu
 
 # Adding to Gateway
 
-To add your web thing to the WebThings Gateway, install the "Web Thing" add-on and follow the instructions [here](https://github.com/mozilla-iot/thing-url-adapter#readme).
+To add your web thing to the WebThings Gateway, install the "Web Thing" add-on and follow the instructions [here](https://github.com/WebThingsIO/thing-url-adapter#readme).
