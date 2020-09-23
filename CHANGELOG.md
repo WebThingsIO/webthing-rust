@@ -4,7 +4,7 @@
 
 ## [0.13.1] - 2020-09-23
 ### Changed
-- Update author and URLs.
+- Update author and URLs to indicate new project home.
 
 ## [0.13.0] - 2020-09-16
 ### Changed
@@ -60,7 +60,7 @@
 - Property, Action, and Event description now use `links` rather than `href`. - [Spec PR](https://github.com/WebThingsIO/wot/pull/119)
 
 [Unreleased]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.1...HEAD
-[0.13.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.0...v0.13.1
+[0.13.1]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.4...v0.13.0
 [0.12.4]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.3...v0.12.4
 [0.12.3]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.2...v0.12.3
