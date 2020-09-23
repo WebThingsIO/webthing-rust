@@ -13,6 +13,10 @@
 - Server is now created and started with `.start()`; `.create()` is no longer present.
 - Server no longer takes an optional router. Instead, an optional `configure` closure can be passed to `.start()`, which will be used via `App.configure(<your closure>)`.
 
+## [0.12.4] - 2020-06-18
+### Changed
+- mDNS record now indicates TLS support.
+
 ## [0.12.3] - 2020-05-04
 ### Changed
 - Invalid POST requests to action resources now generate an error status.
@@ -57,7 +61,8 @@
 
 [Unreleased]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.1...HEAD
 [0.13.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.0...v0.13.1
-[0.13.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.3...v0.13.0
+[0.13.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.4...v0.13.0
+[0.12.4]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.3...v0.12.4
 [0.12.3]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.2...v0.12.3
 [0.12.2]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.0...v0.12.1
