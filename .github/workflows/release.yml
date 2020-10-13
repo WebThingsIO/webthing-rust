@@ -14,8 +14,8 @@ jobs:
         run: |
           rustup install stable
           rustup default stable
-      - name: Set env
-        run: echo ::set-env name=RELEASE_VERSION::$(echo ${GITHUB_REF:11})
+      - name: Set release version
+        run: echo "RELEASE_VERSION=${GITHUB_REF:11}" >> $GITHUB_ENV
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1.0.0
