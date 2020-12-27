@@ -24,6 +24,8 @@ use super::action::Action;
 use super::thing::Thing;
 use super::utils::get_addresses;
 
+const SERVICE_TYPE: &str = "_webthing._tcp";
+
 /// Represents the things managed by the server.
 #[derive(Clone)]
 pub enum ThingsType {
@@ -893,6 +895,7 @@ pub struct WebThingServer {
     base_path: String,
     port: Option<u16>,
     hostname: Option<String>,
+    dns_service: Option<libmdns::Service>,
     #[allow(dead_code)]
     ssl_options: Option<(String, String)>,
     generator_arc: Arc<Box<dyn ActionGenerator>>,
@@ -908,6 +911,7 @@ impl WebThingServer {
     ///   things
     /// * `port` - port to listen on (defaults to 80)
     /// * `hostname` - optional host name, i.e. mything.com
+    /// * `dns_service` - optional libmdns::Service name
     /// * `ssl_options` - tuple of SSL options to pass to the actix web server
     /// * `action_generator` - action generator struct
     /// * `base_path` - base URL to use, rather than '/'
@@ -915,6 +919,7 @@ impl WebThingServer {
         things: ThingsType,
         port: Option<u16>,
         hostname: Option<String>,
+        dns_service: Option<libmdns::Service>,
         ssl_options: Option<(String, String)>,
         action_generator: Box<dyn ActionGenerator>,
         base_path: Option<String>,
@@ -926,6 +931,7 @@ impl WebThingServer {
                 .unwrap_or_else(|| "".to_owned()),
             port,
             hostname,
+            dns_service,
             ssl_options,
             generator_arc: Arc::new(action_generator),
         }
@@ -1121,17 +1127,12 @@ impl WebThingServer {
         });
 
         let responder = libmdns::Responder::new().unwrap();
+        self.dns_service =
+            Some(responder.register(SERVICE_TYPE.to_owned(), name.clone(), port, &["path=/"]));
 
         #[cfg(feature = "ssl")]
         match self.ssl_options {
             Some(ref o) => {
-                responder.register(
-                    "_webthing._tcp".to_owned(),
-                    name.clone(),
-                    port,
-                    &["path=/", "tls=1"],
-                );
-
                 let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
                 builder
                     .set_private_key_file(o.0.clone(), SslFiletype::PEM)
@@ -1142,18 +1143,14 @@ impl WebThingServer {
                     .expect("Failed to bind socket")
                     .run()
             }
-            None => {
-                responder.register("_webthing._tcp".to_owned(), name.clone(), port, &["path=/"]);
-                server
-                    .bind(format!("0.0.0.0:{}", port))
-                    .expect("Failed to bind socket")
-                    .run()
-            }
+            None => server
+                .bind(format!("0.0.0.0:{}", port))
+                .expect("Failed to bind socket")
+                .run(),
         }
 
         #[cfg(not(feature = "ssl"))]
         {
-            responder.register("_webthing._tcp".to_owned(), name.clone(), port, &["path=/"]);
             server
                 .bind(format!("0.0.0.0:{}", port))
                 .expect("Failed to bind socket")

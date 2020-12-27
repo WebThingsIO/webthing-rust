@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.13.2] - 2020-12-27
+### Changed
+- Added libmdns::Service property called `dns_service` to WebThingServer
+- WebThingServer::new() now takes additional additional `dns_service` property which can be `None`
+- Rust example publishes mDNS-SD (service discovery) correctly
+
 ## [0.13.1] - 2020-09-23
 ### Changed
 - Update author and URLs to indicate new project home.
