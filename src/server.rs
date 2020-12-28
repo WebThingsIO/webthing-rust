@@ -24,6 +24,8 @@ use super::action::Action;
 use super::thing::Thing;
 use super::utils::get_addresses;
 
+const SERVICE_TYPE: &str = "_webthing._tcp";
+
 /// Represents the things managed by the server.
 #[derive(Clone)]
 pub enum ThingsType {
@@ -893,6 +895,7 @@ pub struct WebThingServer {
     base_path: String,
     port: Option<u16>,
     hostname: Option<String>,
+    dns_service: Option<libmdns::Service>,
     #[allow(dead_code)]
     ssl_options: Option<(String, String)>,
     generator_arc: Arc<Box<dyn ActionGenerator>>,
@@ -920,13 +923,14 @@ impl WebThingServer {
         base_path: Option<String>,
     ) -> Self {
         Self {
-            things,
+            things: things,
             base_path: base_path
                 .map(|p| p.trim_end_matches("/").to_string())
                 .unwrap_or_else(|| "".to_owned()),
-            port,
-            hostname,
-            ssl_options,
+            port: port,
+            hostname: hostname,
+            dns_service: None,
+            ssl_options: ssl_options,
             generator_arc: Arc::new(action_generator),
         }
     }
@@ -1125,12 +1129,12 @@ impl WebThingServer {
         #[cfg(feature = "ssl")]
         match self.ssl_options {
             Some(ref o) => {
-                responder.register(
-                    "_webthing._tcp".to_owned(),
+                self.dns_service = Some(responder.register(
+                    SERVICE_TYPE.to_owned(),
                     name.clone(),
                     port,
                     &["path=/", "tls=1"],
-                );
+                ));
 
                 let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
                 builder
@@ -1143,7 +1147,12 @@ impl WebThingServer {
                     .run()
             }
             None => {
-                responder.register("_webthing._tcp".to_owned(), name.clone(), port, &["path=/"]);
+                self.dns_service = Some(responder.register(
+                    SERVICE_TYPE.to_owned(),
+                    name.clone(),
+                    port,
+                    &["path=/"],
+                ));
                 server
                     .bind(format!("0.0.0.0:{}", port))
                     .expect("Failed to bind socket")
@@ -1153,7 +1162,8 @@ impl WebThingServer {
 
         #[cfg(not(feature = "ssl"))]
         {
-            responder.register("_webthing._tcp".to_owned(), name.clone(), port, &["path=/"]);
+            self.dns_service =
+                Some(responder.register(SERVICE_TYPE.to_owned(), name.clone(), port, &["path=/"]));
             server
                 .bind(format!("0.0.0.0:{}", port))
                 .expect("Failed to bind socket")

@@ -113,7 +113,9 @@ let mut server = WebThingServer::new(
     ThingsType::Multiple(things, "LightAndTempDevice".to_owned()),
     Some(8888),
     None,
+    None,
     Box::new(Generator),
+    None,
 );
 let server_addr = server.create();
 server.start();
