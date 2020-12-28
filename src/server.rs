@@ -911,7 +911,6 @@ impl WebThingServer {
     ///   things
     /// * `port` - port to listen on (defaults to 80)
     /// * `hostname` - optional host name, i.e. mything.com
-    /// * `dns_service` - optional libmdns::Service name
     /// * `ssl_options` - tuple of SSL options to pass to the actix web server
     /// * `action_generator` - action generator struct
     /// * `base_path` - base URL to use, rather than '/'
@@ -919,20 +918,19 @@ impl WebThingServer {
         things: ThingsType,
         port: Option<u16>,
         hostname: Option<String>,
-        dns_service: Option<libmdns::Service>,
         ssl_options: Option<(String, String)>,
         action_generator: Box<dyn ActionGenerator>,
         base_path: Option<String>,
     ) -> Self {
         Self {
-            things,
+            things: things,
             base_path: base_path
                 .map(|p| p.trim_end_matches("/").to_string())
                 .unwrap_or_else(|| "".to_owned()),
-            port,
-            hostname,
-            dns_service,
-            ssl_options,
+            port: port,
+            hostname: hostname,
+            dns_service: None,
+            ssl_options: ssl_options,
             generator_arc: Arc::new(action_generator),
         }
     }

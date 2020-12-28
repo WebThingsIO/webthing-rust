@@ -114,7 +114,6 @@ let mut server = WebThingServer::new(
     Some(8888),
     None,
     None,
-    None,
     Box::new(Generator),
     None,
 );
