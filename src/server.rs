@@ -1125,12 +1125,17 @@ impl WebThingServer {
         });
 
         let responder = libmdns::Responder::new().unwrap();
-        self.dns_service =
-            Some(responder.register(SERVICE_TYPE.to_owned(), name.clone(), port, &["path=/"]));
 
         #[cfg(feature = "ssl")]
         match self.ssl_options {
             Some(ref o) => {
+                self.dns_service = Some(responder.register(
+                    SERVICE_TYPE.to_owned(),
+                    name.clone(),
+                    port,
+                    &["path=/", "tls=1"],
+                ));
+
                 let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
                 builder
                     .set_private_key_file(o.0.clone(), SslFiletype::PEM)
@@ -1141,14 +1146,24 @@ impl WebThingServer {
                     .expect("Failed to bind socket")
                     .run()
             }
-            None => server
-                .bind(format!("0.0.0.0:{}", port))
-                .expect("Failed to bind socket")
-                .run(),
+            None => {
+                self.dns_service = Some(responder.register(
+                    SERVICE_TYPE.to_owned(),
+                    name.clone(),
+                    port,
+                    &["path=/"],
+                ));
+                server
+                    .bind(format!("0.0.0.0:{}", port))
+                    .expect("Failed to bind socket")
+                    .run()
+            }
         }
 
         #[cfg(not(feature = "ssl"))]
         {
+            self.dns_service =
+                Some(responder.register(SERVICE_TYPE.to_owned(), name.clone(), port, &["path=/"]));
             server
                 .bind(format!("0.0.0.0:{}", port))
                 .expect("Failed to bind socket")
