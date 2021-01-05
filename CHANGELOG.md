@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.14.0] - 2021-01-05
+### Added
+- Parameter to disable host validation in server.
+
 ## [0.13.2] - 2020-12-29
 ### Changed
 - Added libmdns::Service property called `dns_service` to WebThingServer
@@ -64,7 +68,8 @@
 ### Changed
 - Property, Action, and Event description now use `links` rather than `href`. - [Spec PR](https://github.com/WebThingsIO/wot/pull/119)
 
-[Unreleased]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/WebThingsIO/webthing-rust/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.12.4...v0.13.0

@@ -276,9 +276,7 @@ async fn main() -> std::io::Result<()> {
         loop {
             thread::sleep(time::Duration::from_millis(3000));
             let t = cloned.clone();
-            let new_value = 70.0
-                * rng.gen_range::<f32, f32, f32>(0.0, 1.0)
-                * (-0.5 + rng.gen_range::<f32, f32, f32>(0.0, 1.0));
+            let new_value: f32 = 70.0 * rng.gen_range(0.0..1.0) * (-0.5 + rng.gen_range(0.0..1.0));
             let new_value = json!(new_value.abs());
 
             println!("setting new humidity level: {}", new_value);
@@ -303,6 +301,7 @@ async fn main() -> std::io::Result<()> {
         None,
         None,
         Box::new(Generator),
+        None,
         None,
     );
     server.start(None).await

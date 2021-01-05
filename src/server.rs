@@ -5,6 +5,7 @@ use actix_service::{Service, Transform};
 use actix_web;
 use actix_web::dev::{Server, ServiceRequest, ServiceResponse};
 use actix_web::guard;
+use actix_web::http::HeaderValue;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
 use futures::future::{ok, Either, Ready};
@@ -56,6 +57,7 @@ pub trait ActionGenerator: Send + Sync {
 struct AppState {
     things: Arc<ThingsType>,
     hosts: Arc<Vec<String>>,
+    disable_host_validation: Arc<bool>,
     action_generator: Arc<Box<dyn ActionGenerator>>,
 }
 
@@ -93,11 +95,22 @@ impl AppState {
         self.action_generator.clone()
     }
 
-    fn validate_host(&self, host: String) -> Result<(), ()> {
-        if self.hosts.contains(&host.to_lowercase()) {
+    fn validate_host(&self, host: Option<&HeaderValue>) -> Result<(), ()> {
+        if *self.disable_host_validation {
             Ok(())
-        } else {
+        } else if host.is_none() {
             Err(())
+        } else {
+            match host.unwrap().to_str() {
+                Ok(host) => {
+                    if self.hosts.contains(&host.to_lowercase()) {
+                        Ok(())
+                    } else {
+                        Err(())
+                    }
+                }
+                Err(_) => Err(()),
+            }
         }
     }
 }
@@ -143,22 +156,6 @@ where
     }
 
     fn call(&mut self, req: ServiceRequest) -> Self::Future {
-        let host = req.headers().get("Host");
-        if host.is_none() {
-            return Either::Right(ok(
-                req.into_response(HttpResponse::Forbidden().finish().into_body())
-            ));
-        }
-
-        let host = host.unwrap().to_str();
-        if host.is_err() {
-            return Either::Right(ok(
-                req.into_response(HttpResponse::Forbidden().finish().into_body())
-            ));
-        }
-
-        let host = host.unwrap();
-
         let state = req.app_data::<web::Data<AppState>>();
         if state.is_none() {
             return Either::Right(ok(
@@ -167,7 +164,9 @@ where
         }
 
         let state = state.unwrap();
-        match state.validate_host(host.to_owned()) {
+
+        let host = req.headers().get("Host");
+        match state.validate_host(host) {
             Ok(_) => Either::Left(self.service.call(req)),
             Err(_) => Either::Right(ok(
                 req.into_response(HttpResponse::Forbidden().finish().into_body())
@@ -893,6 +892,7 @@ fn handle_get_event(req: HttpRequest, state: web::Data<AppState>) -> HttpRespons
 pub struct WebThingServer {
     things: ThingsType,
     base_path: String,
+    disable_host_validation: bool,
     port: Option<u16>,
     hostname: Option<String>,
     dns_service: Option<libmdns::Service>,
@@ -914,6 +914,8 @@ impl WebThingServer {
     /// * `ssl_options` - tuple of SSL options to pass to the actix web server
     /// * `action_generator` - action generator struct
     /// * `base_path` - base URL to use, rather than '/'
+    /// * `disable_host_validation` - whether or not to disable host validation -- note that this
+    ///   can lead to DNS rebinding attacks
     pub fn new(
         things: ThingsType,
         port: Option<u16>,
@@ -921,12 +923,14 @@ impl WebThingServer {
         ssl_options: Option<(String, String)>,
         action_generator: Box<dyn ActionGenerator>,
         base_path: Option<String>,
+        disable_host_validation: Option<bool>,
     ) -> Self {
         Self {
             things: things,
             base_path: base_path
                 .map(|p| p.trim_end_matches("/").to_string())
                 .unwrap_or_else(|| "".to_owned()),
+            disable_host_validation: disable_host_validation.unwrap_or_else(|| false),
             port: port,
             hostname: hostname,
             dns_service: None,
@@ -996,6 +1000,7 @@ impl WebThingServer {
         let things_arc = Arc::new(self.things.clone());
         let hosts_arc = Arc::new(hosts.clone());
         let generator_arc_clone = self.generator_arc.clone();
+        let disable_host_validation_arc = Arc::new(self.disable_host_validation.clone());
 
         let bp = self.base_path.clone();
         let server = HttpServer::new(move || {
@@ -1004,6 +1009,7 @@ impl WebThingServer {
                 .data(AppState {
                     things: things_arc.clone(),
                     hosts: hosts_arc.clone(),
+                    disable_host_validation: disable_host_validation_arc.clone(),
                     action_generator: generator_arc_clone.clone(),
                 })
                 .wrap(middleware::Logger::default())

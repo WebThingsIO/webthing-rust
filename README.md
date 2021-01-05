@@ -116,6 +116,7 @@ let mut server = WebThingServer::new(
     None,
     Box::new(Generator),
     None,
+    None,
 );
 let server_addr = server.create();
 server.start();

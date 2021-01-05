@@ -1,6 +1,6 @@
 [package]
 name = "webthing"
-version = "0.13.2"
+version = "0.14.0"
 authors = ["WebThingsIO <team@webthings.io>"]
 repository = "https://github.com/WebThingsIO/webthing-rust"
 homepage = "https://github.com/WebThingsIO/webthing-rust"
@@ -13,22 +13,22 @@ edition = "2018"
 actix = "0.10"
 actix-net = "0.2"
 actix-service = "1.0"
-actix-web = "3.0"
+actix-web = "3.3"
 actix-web-actors = "3.0"
 chrono = "0.4"
 futures = "0.3"
 get_if_addrs = "0.5"
 hostname = "0.3"
-libmdns = "0.4"
+libmdns = "0.6"
 openssl = { version = "0.10", optional = true }
 serde_json = "1.0"
 uuid = { version = "0.8", features = ["v4"] }
-valico = "3.4"
+valico = "3.5"
 
 [dev-dependencies]
 actix-rt = "1.1"
-env_logger = "0.7"
-rand = "0.7"
+env_logger = "0.8"
+rand = "0.8"
 
 [features]
 default = []

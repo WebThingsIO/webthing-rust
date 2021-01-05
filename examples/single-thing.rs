@@ -226,6 +226,7 @@ async fn main() -> std::io::Result<()> {
         None,
         Box::new(Generator),
         None,
+        None,
     );
     server.start(None).await
 }
