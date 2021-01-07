@@ -240,7 +240,7 @@ impl BaseThing {
     ) -> Self {
         Self {
             id,
-            context: "https://iot.mozilla.org/schemas".to_owned(),
+            context: "https://webthings.io/schemas".to_owned(),
             type_: type_.unwrap_or_else(|| vec![]),
             title,
             description: description.unwrap_or_else(|| "".to_string()),

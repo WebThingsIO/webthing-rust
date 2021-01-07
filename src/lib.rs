@@ -1,6 +1,6 @@
 #![deny(missing_docs)]
 
-//! Implementation of an HTTP [Web Thing](https://iot.mozilla.org/wot/).
+//! Implementation of an HTTP [Web Thing](https://webthings.io/api/).
 
 extern crate std;
 
