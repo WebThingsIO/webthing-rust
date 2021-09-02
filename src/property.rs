@@ -20,9 +20,8 @@ pub trait Property: Send + Sync {
         description.remove("unit");
         description.remove("title");
 
-        if description.contains_key("readOnly") {
-            let b = description.get("readOnly").unwrap().as_bool();
-            if b.is_some() && b.unwrap() {
+        if let Some(b) = description.get("readOnly").and_then(|b| b.as_bool()) {
+            if b {
                 return Err("Read-only property");
             }
         }
@@ -52,12 +51,10 @@ pub trait Property: Send + Sync {
             }
         );
 
-        if description.contains_key("links") {
-            let links = description
-                .get_mut("links")
-                .unwrap()
-                .as_array_mut()
-                .unwrap();
+        if let Some(links) = description
+            .get_mut("links")
+            .map(|links| links.as_array_mut().unwrap())
+        {
             links.push(link);
         } else {
             description.insert("links".to_string(), json!([link]));
