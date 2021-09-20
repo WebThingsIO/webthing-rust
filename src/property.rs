@@ -20,10 +20,8 @@ pub trait Property: Send + Sync {
         description.remove("unit");
         description.remove("title");
 
-        if let Some(b) = description.get("readOnly").and_then(|b| b.as_bool()) {
-            if b {
-                return Err("Read-only property");
-            }
+        if description.get("readOnly").and_then(|b| b.as_bool()).unwrap_or(false) {
+            return Err("Read-only property");
         }
 
         let mut scope = json_schema::Scope::new();
