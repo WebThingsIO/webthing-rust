@@ -66,17 +66,7 @@ impl AppState {
     fn get_thing(&self, thing_id: Option<&str>) -> Option<Arc<RwLock<Box<dyn Thing>>>> {
         match self.things.as_ref() {
             ThingsType::Multiple(ref inner_things, _) => {
-                if thing_id.is_none() {
-                    return None;
-                }
-
-                let id = thing_id.unwrap().parse::<usize>();
-
-                if id.is_err() {
-                    return None;
-                }
-
-                let id = id.unwrap();
+                let id = thing_id?.parse::<usize>().ok()?;
                 if id >= inner_things.len() {
                     None
                 } else {
@@ -97,21 +87,16 @@ impl AppState {
 
     fn validate_host(&self, host: Option<&HeaderValue>) -> Result<(), ()> {
         if *self.disable_host_validation {
-            Ok(())
-        } else if host.is_none() {
-            Err(())
-        } else {
-            match host.unwrap().to_str() {
-                Ok(host) => {
-                    if self.hosts.contains(&host.to_lowercase()) {
-                        Ok(())
-                    } else {
-                        Err(())
-                    }
-                }
-                Err(_) => Err(()),
+            return Ok(());
+        }
+
+        if let Some(Ok(host)) = host.map(|h| h.to_str()) {
+            if self.hosts.contains(&host.to_lowercase()) {
+                return Ok(());
             }
         }
+
+        Err(())
     }
 }
 
@@ -529,31 +514,26 @@ async fn handle_ws_thing(
 
 /// Handle a GET request to /properties.
 async fn handle_get_properties(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    match thing {
-        Some(thing) => {
-            let thing = thing.read().unwrap();
-            HttpResponse::Ok().json(json!(thing.get_properties()))
-        }
-        None => HttpResponse::NotFound().finish(),
+    if let Some(thing) = state.get_thing(req.match_info().get("thing_id")) {
+        let thing = thing.read().unwrap();
+        HttpResponse::Ok().json(json!(thing.get_properties()))
+    } else {
+        HttpResponse::NotFound().finish()
     }
 }
 
 /// Handle a GET request to /properties/<property>.
 fn handle_get_property(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    if thing.is_none() {
-        return HttpResponse::NotFound().finish();
-    }
+    let thing = match state.get_thing(req.match_info().get("thing_id")) {
+        Some(thing) => thing,
+        None => return HttpResponse::NotFound().finish(),
+    };
 
-    let thing = thing.unwrap();
+    let property_name = match req.match_info().get("property_name") {
+        Some(property_name) => property_name,
+        None => return HttpResponse::NotFound().finish(),
+    };
 
-    let property_name = req.match_info().get("property_name");
-    if property_name.is_none() {
-        return HttpResponse::NotFound().finish();
-    }
-
-    let property_name = property_name.unwrap();
     let thing = thing.read().unwrap();
     if thing.has_property(&property_name.to_string()) {
         HttpResponse::Ok()
@@ -569,25 +549,20 @@ fn handle_put_property(
     state: web::Data<AppState>,
     body: web::Json<serde_json::Value>,
 ) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    if thing.is_none() {
-        return HttpResponse::NotFound().finish();
-    }
+    let thing = match state.get_thing(req.match_info().get("thing_id")) {
+        Some(thing) => thing,
+        None => return HttpResponse::NotFound().finish(),
+    };
 
-    let thing = thing.unwrap();
+    let property_name = match req.match_info().get("property_name") {
+        Some(property_name) => property_name,
+        None => return HttpResponse::NotFound().finish(),
+    };
 
-    let property_name = req.match_info().get("property_name");
-    if property_name.is_none() {
-        return HttpResponse::NotFound().finish();
-    }
-
-    let property_name = property_name.unwrap();
-
-    if !body.is_object() {
-        return HttpResponse::BadRequest().finish();
-    }
-
-    let args = body.as_object().unwrap();
+    let args = match body.as_object() {
+        Some(args) => args,
+        None => return HttpResponse::BadRequest().finish(),
+    };
 
     if !args.contains_key(property_name) {
         return HttpResponse::BadRequest().finish();
@@ -615,8 +590,7 @@ fn handle_put_property(
 
 /// Handle a GET request to /actions.
 fn handle_get_actions(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    match thing {
+    match state.get_thing(req.match_info().get("thing_id")) {
         None => HttpResponse::NotFound().finish(),
         Some(thing) => HttpResponse::Ok().json(thing.read().unwrap().get_action_descriptions(None)),
     }
@@ -628,18 +602,15 @@ fn handle_post_actions(
     state: web::Data<AppState>,
     body: web::Json<serde_json::Value>,
 ) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    if thing.is_none() {
-        return HttpResponse::NotFound().finish();
-    }
+    let thing = match state.get_thing(req.match_info().get("thing_id")) {
+        Some(thing) => thing,
+        None => return HttpResponse::NotFound().finish(),
+    };
 
-    let thing = thing.unwrap();
-
-    if !body.is_object() {
-        return HttpResponse::BadRequest().finish();
-    }
-
-    let message = body.as_object().unwrap();
+    let message = match body.as_object() {
+        Some(message) => message,
+        None => return HttpResponse::BadRequest().finish(),
+    };
 
     let keys: Vec<&String> = message.keys().collect();
     if keys.len() != 1 {
@@ -656,8 +627,7 @@ fn handle_post_actions(
         input,
     );
 
-    if action.is_some() {
-        let action = action.unwrap();
+    if let Some(action) = action {
         let id = action.get_id();
         let action = Arc::new(RwLock::new(action));
 
@@ -695,20 +665,15 @@ fn handle_post_actions(
 
 /// Handle a GET request to /actions/<action_name>.
 fn handle_get_action(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    if thing.is_none() {
-        return HttpResponse::NotFound().finish();
+    if let Some(thing) = state.get_thing(req.match_info().get("thing_id")) {
+        if let Some(action_name) = req.match_info().get("action_name") {
+            let thing = thing.read().unwrap();
+            return HttpResponse::Ok()
+                .json(thing.get_action_descriptions(Some(action_name.to_string())));
+        }
     }
 
-    let thing = thing.unwrap();
-
-    let action_name = req.match_info().get("action_name");
-    if action_name.is_none() {
-        return HttpResponse::NotFound().finish();
-    }
-
-    let thing = thing.read().unwrap();
-    HttpResponse::Ok().json(thing.get_action_descriptions(Some(action_name.unwrap().to_string())))
+    HttpResponse::NotFound().finish()
 }
 
 /// Handle a POST request to /actions/<action_name>.
@@ -717,37 +682,34 @@ fn handle_post_action(
     state: web::Data<AppState>,
     body: web::Json<serde_json::Value>,
 ) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    if thing.is_none() {
+    let thing = if let Some(thing) = state.get_thing(req.match_info().get("thing_id")) {
+        thing
+    } else {
         return HttpResponse::NotFound().finish();
-    }
+    };
 
-    let thing = thing.unwrap();
+    let action_name = if let Some(action_name) = req.match_info().get("action_name") {
+        action_name
+    } else {
+        return HttpResponse::NotFound().finish();
+    };
 
-    if !body.is_object() {
+    let message = if let Some(message) = body.as_object() {
+        message
+    } else {
         return HttpResponse::BadRequest().finish();
-    }
-
-    let action_name = req.match_info().get("action_name");
-    if action_name.is_none() {
-        return HttpResponse::NotFound().finish();
-    }
-
-    let action_name = action_name.unwrap();
-
-    let message = body.as_object().unwrap();
+    };
 
     let keys: Vec<&String> = message.keys().collect();
     if keys.len() != 1 {
         return HttpResponse::BadRequest().finish();
     }
 
-    if keys[0] != action_name {
+    let input = if let Some(action_params) = message.get(action_name) {
+        action_params.get("input")
+    } else {
         return HttpResponse::BadRequest().finish();
-    }
-
-    let action_params = message.get(action_name).unwrap();
-    let input = action_params.get("input");
+    };
 
     let action = state.get_action_generator().generate(
         Arc::downgrade(&thing.clone()),
@@ -755,8 +717,7 @@ fn handle_post_action(
         input,
     );
 
-    if action.is_some() {
-        let action = action.unwrap();
+    if let Some(action) = action {
         let id = action.get_id();
         let action = Arc::new(RwLock::new(action));
 
@@ -794,30 +755,25 @@ fn handle_post_action(
 
 /// Handle a GET request to /actions/<action_name>/<action_id>.
 fn handle_get_action_id(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    if thing.is_none() {
+    let thing = if let Some(thing) = state.get_thing(req.match_info().get("thing_id")) {
+        thing
+    } else {
         return HttpResponse::NotFound().finish();
-    }
-
-    let thing = thing.unwrap();
+    };
 
     let action_name = req.match_info().get("action_name");
     let action_id = req.match_info().get("action_id");
-    if action_name.is_none() || action_id.is_none() {
+    let (action_name, action_id) = if let Some(action) = action_name.zip(action_id) {
+        action
+    } else {
         return HttpResponse::NotFound().finish();
-    }
+    };
 
     let thing = thing.read().unwrap();
-    let action = thing.get_action(
-        action_name.unwrap().to_string(),
-        action_id.unwrap().to_string(),
-    );
-    if action.is_none() {
-        HttpResponse::NotFound().finish()
+    if let Some(action) = thing.get_action(action_name.to_string(), action_id.to_string()) {
+        HttpResponse::Ok().json(action.read().unwrap().as_action_description())
     } else {
-        let action = action.unwrap();
-        let action = action.read().unwrap();
-        HttpResponse::Ok().json(action.as_action_description())
+        HttpResponse::NotFound().finish()
     }
 }
 
@@ -827,44 +783,40 @@ fn handle_put_action_id(
     state: web::Data<AppState>,
     _body: web::Json<serde_json::Value>,
 ) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    if thing.is_none() {
-        HttpResponse::NotFound().finish()
-    } else {
-        // TODO: this is not yet defined in the spec
-        HttpResponse::Ok().finish()
+    match state.get_thing(req.match_info().get("thing_id")) {
+        Some(_) => {
+            // TODO: this is not yet defined in the spec
+            HttpResponse::Ok().finish()
+        }
+        None => HttpResponse::NotFound().finish(),
     }
 }
 
 /// Handle a DELETE request to /actions/<action_name>/<action_id>.
 fn handle_delete_action_id(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    if thing.is_none() {
-        return HttpResponse::NotFound().finish();
-    }
-
-    let thing = thing.unwrap();
+    let thing = match state.get_thing(req.match_info().get("thing_id")) {
+        Some(thing) => thing,
+        None => return HttpResponse::NotFound().finish(),
+    };
 
     let action_name = req.match_info().get("action_name");
     let action_id = req.match_info().get("action_id");
-    if action_name.is_none() || action_id.is_none() {
-        return HttpResponse::NotFound().finish();
+    if let Some((action_name, action_id)) = action_name.zip(action_id) {
+        if thing
+            .write()
+            .unwrap()
+            .remove_action(action_name.to_string(), action_id.to_string())
+        {
+            return HttpResponse::NoContent().finish();
+        }
     }
 
-    if thing.write().unwrap().remove_action(
-        action_name.unwrap().to_string(),
-        action_id.unwrap().to_string(),
-    ) {
-        HttpResponse::NoContent().finish()
-    } else {
-        HttpResponse::NotFound().finish()
-    }
+    HttpResponse::NotFound().finish()
 }
 
 /// Handle a GET request to /events.
 fn handle_get_events(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    match thing {
+    match state.get_thing(req.match_info().get("thing_id")) {
         None => HttpResponse::NotFound().finish(),
         Some(thing) => HttpResponse::Ok().json(thing.read().unwrap().get_event_descriptions(None)),
     }
@@ -872,20 +824,18 @@ fn handle_get_events(req: HttpRequest, state: web::Data<AppState>) -> HttpRespon
 
 /// Handle a GET request to /events/<event_name>.
 fn handle_get_event(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
-    let thing = state.get_thing(req.match_info().get("thing_id"));
-    if thing.is_none() {
-        return HttpResponse::NotFound().finish();
-    }
+    let thing = match state.get_thing(req.match_info().get("thing_id")) {
+        Some(thing) => thing,
+        None => return HttpResponse::NotFound().finish(),
+    };
 
-    let thing = thing.unwrap();
-
-    let event_name = req.match_info().get("event_name");
-    if event_name.is_none() {
-        return HttpResponse::NotFound().finish();
-    }
+    let event_name = match req.match_info().get("event_name") {
+        Some(event_name) => event_name,
+        None => return HttpResponse::NotFound().finish(),
+    };
 
     let thing = thing.read().unwrap();
-    HttpResponse::Ok().json(thing.get_event_descriptions(Some(event_name.unwrap().to_string())))
+    HttpResponse::Ok().json(thing.get_event_descriptions(Some(event_name.to_string())))
 }
 
 /// Server to represent a Web Thing over HTTP.
@@ -951,13 +901,8 @@ impl WebThingServer {
 
         let mut hosts = vec!["localhost".to_owned(), format!("localhost:{}", port)];
 
-        let system_hostname = hostname::get();
-        if system_hostname.is_ok() {
-            let name = system_hostname
-                .unwrap()
-                .into_string()
-                .unwrap()
-                .to_lowercase();
+        if let Ok(system_hostname) = hostname::get() {
+            let name = system_hostname.into_string().unwrap().to_lowercase();
             hosts.push(format!("{}.local", name));
             hosts.push(format!("{}.local:{}", name, port));
         }
@@ -967,8 +912,8 @@ impl WebThingServer {
             hosts.push(format!("{}:{}", address, port));
         }
 
-        if self.hostname.is_some() {
-            let name = self.hostname.clone().unwrap().to_lowercase();
+        if let Some(ref hostname) = self.hostname {
+            let name = hostname.to_lowercase();
             hosts.push(name.clone());
             hosts.push(format!("{}:{}", name, port));
         }
@@ -1027,9 +972,8 @@ impl WebThingServer {
                         ),
                 );
 
-            let app = if configure.is_some() {
-                let configure = configure.clone().unwrap();
-                unsafe { app.configure(&*Arc::into_raw(configure)) }
+            let app = if let Some(ref configure) = configure {
+                unsafe { app.configure(&*Arc::into_raw(configure.clone())) }
             } else {
                 app
             };

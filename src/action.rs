@@ -18,14 +18,12 @@ pub trait Action: Send + Sync {
         inner.insert("timeRequested".to_owned(), json!(self.get_time_requested()));
         inner.insert("status".to_owned(), json!(self.get_status()));
 
-        let input = self.get_input();
-        if input.is_some() {
-            inner.insert("input".to_owned(), json!(input.unwrap()));
+        if let Some(input) = self.get_input() {
+            inner.insert("input".to_owned(), json!(input));
         }
 
-        let time_completed = self.get_time_completed();
-        if time_completed.is_some() {
-            inner.insert("timeCompleted".to_owned(), json!(time_completed.unwrap()));
+        if let Some(time_completed) = self.get_time_completed() {
+            inner.insert("timeCompleted".to_owned(), json!(time_completed));
         }
 
         description.insert(self.get_name(), json!(inner));

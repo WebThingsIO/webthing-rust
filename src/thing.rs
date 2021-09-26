@@ -289,12 +289,11 @@ impl Thing for BaseThing {
         );
         links.push(events_link);
 
-        let ui_href = self.get_ui_href();
-        if ui_href.is_some() {
+        if let Some(ui_href) = self.get_ui_href() {
             let mut ui_link = serde_json::Map::new();
             ui_link.insert("rel".to_owned(), json!("alternate"));
             ui_link.insert("mediaType".to_owned(), json!("text/html"));
-            ui_link.insert("href".to_owned(), json!(ui_href.unwrap()));
+            ui_link.insert("href".to_owned(), json!(ui_href));
             links.push(ui_link);
         }
 
@@ -434,9 +433,7 @@ impl Thing for BaseThing {
 
         match action_name {
             Some(action_name) => {
-                let actions = self.actions.get(&action_name);
-                if actions.is_some() {
-                    let actions = actions.unwrap();
+                if let Some(actions) = self.actions.get(&action_name) {
                     for action in actions {
                         descriptions.push(action.read().unwrap().as_action_description());
                     }
@@ -492,11 +489,7 @@ impl Thing for BaseThing {
 
     /// Get a property's value.
     fn get_property(&self, property_name: &String) -> Option<serde_json::Value> {
-        if self.has_property(property_name) {
-            Some(self.properties.get(property_name).unwrap().get_value())
-        } else {
-            None
-        }
+        self.properties.get(property_name).map(|p| p.get_value())
     }
 
     /// Get a mapping of all properties and their values.
@@ -566,13 +559,12 @@ impl Thing for BaseThing {
     ) -> Result<(), &str> {
         let action_name = action.read().unwrap().get_name();
 
-        if !self.available_actions.contains_key(&action_name) {
+        if let Some(action_type) = self.available_actions.get(&action_name) {
+            if !action_type.validate_action_input(input) {
+                return Err("Action input invalid");
+            }
+        } else {
             return Err("Action type not found");
-        }
-
-        let action_type = self.available_actions.get(&action_name).unwrap();
-        if !action_type.validate_action_input(input) {
-            return Err("Action input invalid");
         }
 
         action
@@ -648,11 +640,8 @@ impl Thing for BaseThing {
     /// * `name` - name of the event
     /// * `ws_id` - ID of the websocket
     fn add_event_subscriber(&mut self, name: String, ws_id: String) {
-        if self.available_events.contains_key(&name) {
-            self.available_events
-                .get_mut(&name)
-                .unwrap()
-                .add_subscriber(ws_id);
+        if let Some(event) = self.available_events.get_mut(&name) {
+            event.add_subscriber(ws_id);
         }
     }
 
@@ -663,11 +652,8 @@ impl Thing for BaseThing {
     /// * `name` - name of the event
     /// * `ws_id` - ID of the websocket
     fn remove_event_subscriber(&mut self, name: String, ws_id: String) {
-        if self.available_events.contains_key(&name) {
-            self.available_events
-                .get_mut(&name)
-                .unwrap()
-                .remove_subscriber(ws_id);
+        if let Some(event) = self.available_events.get_mut(&name) {
+            event.remove_subscriber(ws_id);
         }
     }
 
@@ -808,20 +794,10 @@ impl AvailableAction {
     /// Returns a boolean indicating validation success.
     fn validate_action_input(&self, input: Option<&serde_json::Value>) -> bool {
         let mut scope = json_schema::Scope::new();
-        let validator = if self.metadata.contains_key("input") {
-            let mut schema = self
-                .metadata
-                .get("input")
-                .unwrap()
-                .as_object()
-                .unwrap()
-                .clone();
-            if schema.contains_key("properties") {
-                let properties = schema
-                    .get_mut("properties")
-                    .unwrap()
-                    .as_object_mut()
-                    .unwrap();
+        let validator = if let Some(input) = self.metadata.get("input") {
+            let mut schema = input.as_object().unwrap().clone();
+            if let Some(properties) = schema.get_mut("properties") {
+                let properties = properties.as_object_mut().unwrap();
                 for value in properties.values_mut() {
                     let value = value.as_object_mut().unwrap();
                     value.remove("@type");
