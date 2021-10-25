@@ -284,8 +284,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ThingWebSocket {
                                 .unwrap()
                                 .set_property(property_name.to_string(), property_value.clone());
 
-                            if result.is_err() {
-                                let err = result.unwrap_err();
+                            if let Err(err) = result {
                                 return ctx.text(format!(
                                     r#"
                                     {{
