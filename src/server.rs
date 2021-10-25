@@ -699,7 +699,6 @@ fn handle_post_action(
         return HttpResponse::BadRequest().finish();
     };
 
-    
     if message.keys().count() != 1 {
         return HttpResponse::BadRequest().finish();
     }
@@ -975,7 +974,11 @@ impl WebThingServer {
             };
 
             if single {
-                let root = if bp.is_empty() { "/".to_owned() } else { bp.clone() };
+                let root = if bp.is_empty() {
+                    "/".to_owned()
+                } else {
+                    bp.clone()
+                };
 
                 app.service(
                     web::resource(&root)

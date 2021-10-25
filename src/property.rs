@@ -20,7 +20,11 @@ pub trait Property: Send + Sync {
         description.remove("unit");
         description.remove("title");
 
-        if description.get("readOnly").and_then(|b| b.as_bool()).unwrap_or(false) {
+        if description
+            .get("readOnly")
+            .and_then(|b| b.as_bool())
+            .unwrap_or(false)
+        {
             return Err("Read-only property");
         }
 
