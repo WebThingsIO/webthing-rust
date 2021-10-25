@@ -67,13 +67,13 @@ pub trait Thing: Send + Sync {
     fn add_property(&mut self, property: Box<dyn Property>);
 
     /// Remove a property from this thing.
-    fn remove_property(&mut self, property_name: String);
+    fn remove_property(&mut self, property_name: &str);
 
     /// Find a property by name.
-    fn find_property(&mut self, property_name: &String) -> Option<&mut Box<dyn Property>>;
+    fn find_property(&mut self, property_name: &str) -> Option<&mut Box<dyn Property>>;
 
     /// Get a property's value.
-    fn get_property(&self, property_name: &String) -> Option<serde_json::Value>;
+    fn get_property(&self, property_name: &str) -> Option<serde_json::Value>;
 
     /// Get a mapping of all properties and their values.
     ///
@@ -81,7 +81,7 @@ pub trait Thing: Send + Sync {
     fn get_properties(&self) -> serde_json::Map<String, serde_json::Value>;
 
     /// Determine whether or not this thing has a given property.
-    fn has_property(&self, property_name: &String) -> bool;
+    fn has_property(&self, property_name: &str) -> bool;
 
     /// Set a property value.
     fn set_property(
@@ -478,17 +478,17 @@ impl Thing for BaseThing {
     }
 
     /// Remove a property from this thing.
-    fn remove_property(&mut self, property_name: String) {
-        self.properties.remove(&property_name);
+    fn remove_property(&mut self, property_name: &str) {
+        self.properties.remove(property_name);
     }
 
     /// Find a property by name.
-    fn find_property(&mut self, property_name: &String) -> Option<&mut Box<dyn Property>> {
+    fn find_property(&mut self, property_name: &str) -> Option<&mut Box<dyn Property>> {
         self.properties.get_mut(property_name)
     }
 
     /// Get a property's value.
-    fn get_property(&self, property_name: &String) -> Option<serde_json::Value> {
+    fn get_property(&self, property_name: &str) -> Option<serde_json::Value> {
         self.properties.get(property_name).map(|p| p.get_value())
     }
 
@@ -504,7 +504,7 @@ impl Thing for BaseThing {
     }
 
     /// Determine whether or not this thing has a given property.
-    fn has_property(&self, property_name: &String) -> bool {
+    fn has_property(&self, property_name: &str) -> bool {
         self.properties.contains_key(property_name)
     }
 
