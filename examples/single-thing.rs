@@ -77,7 +77,7 @@ impl Action for FadeAction {
         }
 
         let thing = thing.unwrap();
-        let input = self.get_input().unwrap().clone();
+        let input = self.get_input().unwrap();
         let name = self.get_name();
         let id = self.get_id();
 

@@ -460,7 +460,7 @@ fn handle_get_thing(req: HttpRequest, state: web::Data<AppState>) -> HttpRespons
             link.insert("rel".to_owned(), json!("alternate"));
             link.insert("href".to_owned(), json!(ws_href));
 
-            let mut description = thing.as_thing_description().clone();
+            let mut description = thing.as_thing_description();
             {
                 let links = description
                     .get_mut("links")
@@ -945,7 +945,7 @@ impl WebThingServer {
         let things_arc = Arc::new(self.things.clone());
         let hosts_arc = Arc::new(hosts.clone());
         let generator_arc_clone = self.generator_arc.clone();
-        let disable_host_validation_arc = Arc::new(self.disable_host_validation.clone());
+        let disable_host_validation_arc = Arc::new(self.disable_host_validation);
 
         let bp = self.base_path.clone();
         let server = HttpServer::new(move || {
@@ -1113,7 +1113,7 @@ impl WebThingServer {
         #[cfg(not(feature = "ssl"))]
         {
             self.dns_service =
-                Some(responder.register(SERVICE_TYPE.to_owned(), name.clone(), port, &["path=/"]));
+                Some(responder.register(SERVICE_TYPE.to_owned(), name, port, &["path=/"]));
             server
                 .bind(format!("0.0.0.0:{}", port))
                 .expect("Failed to bind socket")
