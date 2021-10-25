@@ -502,7 +502,7 @@ async fn handle_ws_thing(
             };
             let ws = ThingWebSocket {
                 id: Uuid::new_v4().to_string(),
-                thing_id: thing_id,
+                thing_id,
                 things: state.get_things(),
                 action_generator: state.get_action_generator(),
             };
@@ -876,15 +876,15 @@ impl WebThingServer {
         disable_host_validation: Option<bool>,
     ) -> Self {
         Self {
-            things: things,
+            things,
             base_path: base_path
-                .map(|p| p.trim_end_matches("/").to_string())
+                .map(|p| p.trim_end_matches('/').to_string())
                 .unwrap_or_else(|| "".to_owned()),
-            disable_host_validation: disable_host_validation.unwrap_or_else(|| false),
-            port: port,
-            hostname: hostname,
+            disable_host_validation: disable_host_validation.unwrap_or(false),
+            port,
+            hostname,
             dns_service: None,
-            ssl_options: ssl_options,
+            ssl_options,
             generator_arc: Arc::new(action_generator),
         }
     }

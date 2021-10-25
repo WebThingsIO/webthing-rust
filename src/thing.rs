@@ -781,7 +781,7 @@ impl AvailableAction {
     ///
     /// * `metadata` - action metadata
     fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableAction {
-        AvailableAction { metadata: metadata }
+        AvailableAction { metadata }
     }
 
     /// Get the action metadata.
@@ -838,7 +838,7 @@ impl AvailableEvent {
     /// * `metadata` - event metadata
     fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableEvent {
         AvailableEvent {
-            metadata: metadata,
+            metadata,
             subscribers: HashMap::new(),
         }
     }
