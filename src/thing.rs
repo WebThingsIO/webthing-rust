@@ -91,7 +91,7 @@ pub trait Thing: Send + Sync {
     ) -> Result<(), &'static str> {
         let property = self
             .find_property(&property_name)
-            .ok_or_else(|| "Property not found")?;
+            .ok_or("Property not found")?;
 
         property.set_value(value.clone())?;
         self.property_notify(property_name, value);
@@ -241,7 +241,7 @@ impl BaseThing {
         Self {
             id,
             context: "https://webthings.io/schemas".to_owned(),
-            type_: type_.unwrap_or_else(|| vec![]),
+            type_: type_.unwrap_or_else(Vec::new),
             title,
             description: description.unwrap_or_else(|| "".to_string()),
             ..Default::default()
