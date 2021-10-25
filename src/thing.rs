@@ -333,7 +333,7 @@ impl Thing for BaseThing {
 
         description.insert("events".to_owned(), json!(events));
 
-        if self.description.len() > 0 {
+        if !self.description.is_empty() {
             description.insert("description".to_owned(), json!(self.description));
         }
 
@@ -352,7 +352,7 @@ impl Thing for BaseThing {
 
     /// Get this thing's href.
     fn get_href(&self) -> String {
-        if self.href_prefix == "" {
+        if self.href_prefix.is_empty() {
             "/".to_owned()
         } else {
             self.href_prefix.clone()

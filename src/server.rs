@@ -976,7 +976,7 @@ impl WebThingServer {
             };
 
             if single {
-                let root = if bp == "" { "/".to_owned() } else { bp.clone() };
+                let root = if bp.is_empty() { "/".to_owned() } else { bp.clone() };
 
                 app.service(
                     web::resource(&root)
