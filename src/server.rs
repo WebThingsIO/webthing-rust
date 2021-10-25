@@ -700,8 +700,8 @@ fn handle_post_action(
         return HttpResponse::BadRequest().finish();
     };
 
-    let keys: Vec<&String> = message.keys().collect();
-    if keys.len() != 1 {
+    
+    if message.keys().count() != 1 {
         return HttpResponse::BadRequest().finish();
     }
 
