@@ -58,7 +58,7 @@ struct AppState {
     things: Arc<ThingsType>,
     hosts: Arc<Vec<String>>,
     disable_host_validation: Arc<bool>,
-    action_generator: Arc<Box<dyn ActionGenerator>>,
+    action_generator: Arc<dyn ActionGenerator>,
 }
 
 impl AppState {
@@ -81,7 +81,7 @@ impl AppState {
         self.things.clone()
     }
 
-    fn get_action_generator(&self) -> Arc<Box<dyn ActionGenerator>> {
+    fn get_action_generator(&self) -> Arc<dyn ActionGenerator> {
         self.action_generator.clone()
     }
 
@@ -165,7 +165,7 @@ struct ThingWebSocket {
     id: String,
     thing_id: usize,
     things: Arc<ThingsType>,
-    action_generator: Arc<Box<dyn ActionGenerator>>,
+    action_generator: Arc<dyn ActionGenerator>,
 }
 
 impl ThingWebSocket {
@@ -846,7 +846,7 @@ pub struct WebThingServer {
     dns_service: Option<libmdns::Service>,
     #[allow(dead_code)]
     ssl_options: Option<(String, String)>,
-    generator_arc: Arc<Box<dyn ActionGenerator>>,
+    generator_arc: Arc<dyn ActionGenerator>,
 }
 
 impl WebThingServer {
@@ -883,7 +883,7 @@ impl WebThingServer {
             hostname,
             dns_service: None,
             ssl_options,
-            generator_arc: Arc::new(action_generator),
+            generator_arc: Arc::from(action_generator),
         }
     }
 
