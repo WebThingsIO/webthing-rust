@@ -894,10 +894,7 @@ impl WebThingServer {
         &mut self,
         configure: Option<Arc<dyn Fn(&mut web::ServiceConfig) + Send + Sync + 'static>>,
     ) -> Server {
-        let port = match self.port {
-            Some(p) => p,
-            None => 80,
-        };
+        let port = self.port.unwrap_or(80);
 
         let mut hosts = vec!["localhost".to_owned(), format!("localhost:{}", port)];
 

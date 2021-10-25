@@ -120,10 +120,7 @@ impl ActionGenerator for Generator {
         input: Option<&serde_json::Value>,
     ) -> Option<Box<dyn Action>> {
         let input = match input {
-            Some(v) => match v.as_object() {
-                Some(o) => Some(o.clone()),
-                None => None,
-            },
+            Some(v) => v.as_object().map(|o| o.clone()),
             None => None,
         };
 
