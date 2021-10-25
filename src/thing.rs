@@ -707,37 +707,28 @@ impl Thing for BaseThing {
 
     /// Start the specified action.
     fn start_action(&mut self, name: String, id: String) {
-        match self.get_action(name, id) {
-            Some(action) => {
-                let mut a = action.write().unwrap();
-                a.start();
-                self.action_notify(a.as_action_description());
-                a.perform_action();
-            }
-            None => (),
+        if let Some(action) = self.get_action(name, id) {
+            let mut a = action.write().unwrap();
+            a.start();
+            self.action_notify(a.as_action_description());
+            a.perform_action();
         }
     }
 
     /// Cancel the specified action.
     fn cancel_action(&mut self, name: String, id: String) {
-        match self.get_action(name, id) {
-            Some(action) => {
-                let mut a = action.write().unwrap();
-                a.cancel();
-            }
-            None => (),
+        if let Some(action) = self.get_action(name, id) {
+            let mut a = action.write().unwrap();
+            a.cancel();
         }
     }
 
     /// Finish the specified action.
     fn finish_action(&mut self, name: String, id: String) {
-        match self.get_action(name, id) {
-            Some(action) => {
-                let mut a = action.write().unwrap();
-                a.finish();
-                self.action_notify(a.as_action_description());
-            }
-            None => (),
+        if let Some(action) = self.get_action(name, id) {
+            let mut a = action.write().unwrap();
+            a.finish();
+            self.action_notify(a.as_action_description());
         }
     }
 
@@ -749,19 +740,13 @@ impl Thing for BaseThing {
     /// * `ws_id` - ID of the websocket
     fn drain_queue(&mut self, ws_id: String) -> Vec<Drain<String>> {
         let mut drains: Vec<Drain<String>> = Vec::new();
-        match self.subscribers.get_mut(&ws_id) {
-            Some(v) => {
-                drains.push(v.drain(..));
-            }
-            None => (),
+        if let Some(v) = self.subscribers.get_mut(&ws_id) {
+            drains.push(v.drain(..));
         }
 
         self.available_events.values_mut().for_each(|evt| {
-            match evt.get_subscribers().get_mut(&ws_id) {
-                Some(v) => {
-                    drains.push(v.drain(..));
-                }
-                None => (),
+            if let Some(v) = evt.get_subscribers().get_mut(&ws_id) {
+                drains.push(v.drain(..));
             }
         });
 
