@@ -587,7 +587,7 @@ impl Thing for BaseThing {
                 action.write().unwrap().cancel();
 
                 let actions = self.actions.get_mut(&action_name).unwrap();
-                actions.retain(|ref a| a.read().unwrap().get_id() != action_id);
+                actions.retain(|a| a.read().unwrap().get_id() != action_id);
 
                 true
             }
@@ -816,7 +816,7 @@ impl AvailableAction {
 
         match validator {
             Some(ref v) => match input {
-                Some(i) => v.validate(&i).is_valid(),
+                Some(i) => v.validate(i).is_valid(),
                 None => v.validate(&serde_json::Value::Null).is_valid(),
             },
             None => true,
