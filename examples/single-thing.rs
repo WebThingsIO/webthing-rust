@@ -1,4 +1,3 @@
-use actix_rt;
 use serde_json::json;
 use std::sync::{Arc, RwLock, Weak};
 use std::{thread, time};
@@ -77,7 +76,7 @@ impl Action for FadeAction {
         }
 
         let thing = thing.unwrap();
-        let input = self.get_input().unwrap().clone();
+        let input = self.get_input().unwrap();
         let name = self.get_name();
         let id = self.get_id();
 
@@ -120,10 +119,7 @@ impl ActionGenerator for Generator {
         input: Option<&serde_json::Value>,
     ) -> Option<Box<dyn Action>> {
         let input = match input {
-            Some(v) => match v.as_object() {
-                Some(o) => Some(o.clone()),
-                None => None,
-            },
+            Some(v) => v.as_object().cloned(),
             None => None,
         };
 

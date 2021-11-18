@@ -67,13 +67,13 @@ pub trait Thing: Send + Sync {
     fn add_property(&mut self, property: Box<dyn Property>);
 
     /// Remove a property from this thing.
-    fn remove_property(&mut self, property_name: String);
+    fn remove_property(&mut self, property_name: &str);
 
     /// Find a property by name.
-    fn find_property(&mut self, property_name: &String) -> Option<&mut Box<dyn Property>>;
+    fn find_property(&mut self, property_name: &str) -> Option<&mut Box<dyn Property>>;
 
     /// Get a property's value.
-    fn get_property(&self, property_name: &String) -> Option<serde_json::Value>;
+    fn get_property(&self, property_name: &str) -> Option<serde_json::Value>;
 
     /// Get a mapping of all properties and their values.
     ///
@@ -81,7 +81,7 @@ pub trait Thing: Send + Sync {
     fn get_properties(&self) -> serde_json::Map<String, serde_json::Value>;
 
     /// Determine whether or not this thing has a given property.
-    fn has_property(&self, property_name: &String) -> bool;
+    fn has_property(&self, property_name: &str) -> bool;
 
     /// Set a property value.
     fn set_property(
@@ -91,7 +91,7 @@ pub trait Thing: Send + Sync {
     ) -> Result<(), &'static str> {
         let property = self
             .find_property(&property_name)
-            .ok_or_else(|| "Property not found")?;
+            .ok_or("Property not found")?;
 
         property.set_value(value.clone())?;
         self.property_notify(property_name, value);
@@ -241,7 +241,7 @@ impl BaseThing {
         Self {
             id,
             context: "https://webthings.io/schemas".to_owned(),
-            type_: type_.unwrap_or_else(|| vec![]),
+            type_: type_.unwrap_or_else(Vec::new),
             title,
             description: description.unwrap_or_else(|| "".to_string()),
             ..Default::default()
@@ -333,7 +333,7 @@ impl Thing for BaseThing {
 
         description.insert("events".to_owned(), json!(events));
 
-        if self.description.len() > 0 {
+        if !self.description.is_empty() {
             description.insert("description".to_owned(), json!(self.description));
         }
 
@@ -352,7 +352,7 @@ impl Thing for BaseThing {
 
     /// Get this thing's href.
     fn get_href(&self) -> String {
-        if self.href_prefix == "" {
+        if self.href_prefix.is_empty() {
             "/".to_owned()
         } else {
             self.href_prefix.clone()
@@ -478,17 +478,17 @@ impl Thing for BaseThing {
     }
 
     /// Remove a property from this thing.
-    fn remove_property(&mut self, property_name: String) {
-        self.properties.remove(&property_name);
+    fn remove_property(&mut self, property_name: &str) {
+        self.properties.remove(property_name);
     }
 
     /// Find a property by name.
-    fn find_property(&mut self, property_name: &String) -> Option<&mut Box<dyn Property>> {
+    fn find_property(&mut self, property_name: &str) -> Option<&mut Box<dyn Property>> {
         self.properties.get_mut(property_name)
     }
 
     /// Get a property's value.
-    fn get_property(&self, property_name: &String) -> Option<serde_json::Value> {
+    fn get_property(&self, property_name: &str) -> Option<serde_json::Value> {
         self.properties.get(property_name).map(|p| p.get_value())
     }
 
@@ -504,7 +504,7 @@ impl Thing for BaseThing {
     }
 
     /// Determine whether or not this thing has a given property.
-    fn has_property(&self, property_name: &String) -> bool {
+    fn has_property(&self, property_name: &str) -> bool {
         self.properties.contains_key(property_name)
     }
 
@@ -587,7 +587,7 @@ impl Thing for BaseThing {
                 action.write().unwrap().cancel();
 
                 let actions = self.actions.get_mut(&action_name).unwrap();
-                actions.retain(|ref a| a.read().unwrap().get_id() != action_id);
+                actions.retain(|a| a.read().unwrap().get_id() != action_id);
 
                 true
             }
@@ -707,37 +707,28 @@ impl Thing for BaseThing {
 
     /// Start the specified action.
     fn start_action(&mut self, name: String, id: String) {
-        match self.get_action(name, id) {
-            Some(action) => {
-                let mut a = action.write().unwrap();
-                a.start();
-                self.action_notify(a.as_action_description());
-                a.perform_action();
-            }
-            None => (),
+        if let Some(action) = self.get_action(name, id) {
+            let mut a = action.write().unwrap();
+            a.start();
+            self.action_notify(a.as_action_description());
+            a.perform_action();
         }
     }
 
     /// Cancel the specified action.
     fn cancel_action(&mut self, name: String, id: String) {
-        match self.get_action(name, id) {
-            Some(action) => {
-                let mut a = action.write().unwrap();
-                a.cancel();
-            }
-            None => (),
+        if let Some(action) = self.get_action(name, id) {
+            let mut a = action.write().unwrap();
+            a.cancel();
         }
     }
 
     /// Finish the specified action.
     fn finish_action(&mut self, name: String, id: String) {
-        match self.get_action(name, id) {
-            Some(action) => {
-                let mut a = action.write().unwrap();
-                a.finish();
-                self.action_notify(a.as_action_description());
-            }
-            None => (),
+        if let Some(action) = self.get_action(name, id) {
+            let mut a = action.write().unwrap();
+            a.finish();
+            self.action_notify(a.as_action_description());
         }
     }
 
@@ -749,19 +740,13 @@ impl Thing for BaseThing {
     /// * `ws_id` - ID of the websocket
     fn drain_queue(&mut self, ws_id: String) -> Vec<Drain<String>> {
         let mut drains: Vec<Drain<String>> = Vec::new();
-        match self.subscribers.get_mut(&ws_id) {
-            Some(v) => {
-                drains.push(v.drain(..));
-            }
-            None => (),
+        if let Some(v) = self.subscribers.get_mut(&ws_id) {
+            drains.push(v.drain(..));
         }
 
         self.available_events.values_mut().for_each(|evt| {
-            match evt.get_subscribers().get_mut(&ws_id) {
-                Some(v) => {
-                    drains.push(v.drain(..));
-                }
-                None => (),
+            if let Some(v) = evt.get_subscribers().get_mut(&ws_id) {
+                drains.push(v.drain(..));
             }
         });
 
@@ -781,7 +766,7 @@ impl AvailableAction {
     ///
     /// * `metadata` - action metadata
     fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableAction {
-        AvailableAction { metadata: metadata }
+        AvailableAction { metadata }
     }
 
     /// Get the action metadata.
@@ -816,7 +801,7 @@ impl AvailableAction {
 
         match validator {
             Some(ref v) => match input {
-                Some(i) => v.validate(&i).is_valid(),
+                Some(i) => v.validate(i).is_valid(),
                 None => v.validate(&serde_json::Value::Null).is_valid(),
             },
             None => true,
@@ -838,7 +823,7 @@ impl AvailableEvent {
     /// * `metadata` - event metadata
     fn new(metadata: serde_json::Map<String, serde_json::Value>) -> AvailableEvent {
         AvailableEvent {
-            metadata: metadata,
+            metadata,
             subscribers: HashMap::new(),
         }
     }

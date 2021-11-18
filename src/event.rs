@@ -48,8 +48,8 @@ impl BaseEvent {
     /// Create a new BaseEvent.
     pub fn new(name: String, data: Option<serde_json::Value>) -> Self {
         Self {
-            name: name,
-            data: data,
+            name,
+            data,
             time: timestamp(),
         }
     }

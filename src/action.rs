@@ -101,15 +101,15 @@ impl BaseAction {
         let href = format!("/actions/{}/{}", name, id);
 
         Self {
-            id: id,
-            name: name,
-            input: input,
+            id,
+            name,
+            input,
             href_prefix: "".to_owned(),
-            href: href,
+            href,
             status: "created".to_owned(),
             time_requested: timestamp(),
             time_completed: None,
-            thing: thing,
+            thing,
         }
     }
 }

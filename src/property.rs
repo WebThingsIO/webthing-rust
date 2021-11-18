@@ -20,7 +20,11 @@ pub trait Property: Send + Sync {
         description.remove("unit");
         description.remove("title");
 
-        if description.get("readOnly").and_then(|b| b.as_bool()).unwrap_or(false) {
+        if description
+            .get("readOnly")
+            .and_then(|b| b.as_bool())
+            .unwrap_or(false)
+        {
             return Err("Read-only property");
         }
 
@@ -41,7 +45,7 @@ pub trait Property: Send + Sync {
     ///
     /// Returns a JSON value describing the property.
     fn as_property_description(&self) -> serde_json::Map<String, serde_json::Value> {
-        let mut description = self.get_metadata().clone();
+        let mut description = self.get_metadata();
         let link = json!(
             {
                 "rel": "property",
@@ -119,11 +123,11 @@ impl BaseProperty {
         let href = format!("/properties/{}", name);
 
         BaseProperty {
-            name: name,
+            name,
             last_value: initial_value,
-            value_forwarder: value_forwarder,
+            value_forwarder,
             href_prefix: "".to_owned(),
-            href: href,
+            href,
             metadata: meta,
         }
     }
@@ -137,7 +141,7 @@ impl Property for BaseProperty {
 
     /// Get the href of this property.
     fn get_href(&self) -> String {
-        format!("{}{}", self.href_prefix, self.href).to_string()
+        format!("{}{}", self.href_prefix, self.href)
     }
 
     /// Get the current property value.

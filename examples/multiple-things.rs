@@ -1,4 +1,3 @@
-use actix_rt;
 use rand::Rng;
 use serde_json::json;
 use std::sync::{Arc, RwLock, Weak};
@@ -78,7 +77,7 @@ impl Action for FadeAction {
         }
 
         let thing = thing.unwrap();
-        let input = self.get_input().unwrap().clone();
+        let input = self.get_input().unwrap();
         let name = self.get_name();
         let id = self.get_id();
 

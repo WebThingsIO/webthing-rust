@@ -58,7 +58,7 @@ struct AppState {
     things: Arc<ThingsType>,
     hosts: Arc<Vec<String>>,
     disable_host_validation: Arc<bool>,
-    action_generator: Arc<Box<dyn ActionGenerator>>,
+    action_generator: Arc<dyn ActionGenerator>,
 }
 
 impl AppState {
@@ -81,7 +81,7 @@ impl AppState {
         self.things.clone()
     }
 
-    fn get_action_generator(&self) -> Arc<Box<dyn ActionGenerator>> {
+    fn get_action_generator(&self) -> Arc<dyn ActionGenerator> {
         self.action_generator.clone()
     }
 
@@ -165,7 +165,7 @@ struct ThingWebSocket {
     id: String,
     thing_id: usize,
     things: Arc<ThingsType>,
-    action_generator: Arc<Box<dyn ActionGenerator>>,
+    action_generator: Arc<dyn ActionGenerator>,
 }
 
 impl ThingWebSocket {
@@ -284,8 +284,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ThingWebSocket {
                                 .unwrap()
                                 .set_property(property_name.to_string(), property_value.clone());
 
-                            if result.is_err() {
-                                let err = result.unwrap_err();
+                            if let Err(err) = result {
                                 return ctx.text(format!(
                                     r#"
                                     {{
@@ -460,7 +459,7 @@ fn handle_get_thing(req: HttpRequest, state: web::Data<AppState>) -> HttpRespons
             link.insert("rel".to_owned(), json!("alternate"));
             link.insert("href".to_owned(), json!(ws_href));
 
-            let mut description = thing.as_thing_description().clone();
+            let mut description = thing.as_thing_description();
             {
                 let links = description
                     .get_mut("links")
@@ -502,7 +501,7 @@ async fn handle_ws_thing(
             };
             let ws = ThingWebSocket {
                 id: Uuid::new_v4().to_string(),
-                thing_id: thing_id,
+                thing_id,
                 things: state.get_things(),
                 action_generator: state.get_action_generator(),
             };
@@ -700,8 +699,7 @@ fn handle_post_action(
         return HttpResponse::BadRequest().finish();
     };
 
-    let keys: Vec<&String> = message.keys().collect();
-    if keys.len() != 1 {
+    if message.keys().count() != 1 {
         return HttpResponse::BadRequest().finish();
     }
 
@@ -848,7 +846,7 @@ pub struct WebThingServer {
     dns_service: Option<libmdns::Service>,
     #[allow(dead_code)]
     ssl_options: Option<(String, String)>,
-    generator_arc: Arc<Box<dyn ActionGenerator>>,
+    generator_arc: Arc<dyn ActionGenerator>,
 }
 
 impl WebThingServer {
@@ -876,16 +874,16 @@ impl WebThingServer {
         disable_host_validation: Option<bool>,
     ) -> Self {
         Self {
-            things: things,
+            things,
             base_path: base_path
-                .map(|p| p.trim_end_matches("/").to_string())
+                .map(|p| p.trim_end_matches('/').to_string())
                 .unwrap_or_else(|| "".to_owned()),
-            disable_host_validation: disable_host_validation.unwrap_or_else(|| false),
-            port: port,
-            hostname: hostname,
+            disable_host_validation: disable_host_validation.unwrap_or(false),
+            port,
+            hostname,
             dns_service: None,
-            ssl_options: ssl_options,
-            generator_arc: Arc::new(action_generator),
+            ssl_options,
+            generator_arc: Arc::from(action_generator),
         }
     }
 
@@ -894,10 +892,7 @@ impl WebThingServer {
         &mut self,
         configure: Option<Arc<dyn Fn(&mut web::ServiceConfig) + Send + Sync + 'static>>,
     ) -> Server {
-        let port = match self.port {
-            Some(p) => p,
-            None => 80,
-        };
+        let port = self.port.unwrap_or(80);
 
         let mut hosts = vec!["localhost".to_owned(), format!("localhost:{}", port)];
 
@@ -945,7 +940,7 @@ impl WebThingServer {
         let things_arc = Arc::new(self.things.clone());
         let hosts_arc = Arc::new(hosts.clone());
         let generator_arc_clone = self.generator_arc.clone();
-        let disable_host_validation_arc = Arc::new(self.disable_host_validation.clone());
+        let disable_host_validation_arc = Arc::new(self.disable_host_validation);
 
         let bp = self.base_path.clone();
         let server = HttpServer::new(move || {
@@ -979,7 +974,11 @@ impl WebThingServer {
             };
 
             if single {
-                let root = if bp == "" { "/".to_owned() } else { bp.clone() };
+                let root = if bp.is_empty() {
+                    "/".to_owned()
+                } else {
+                    bp.clone()
+                };
 
                 app.service(
                     web::resource(&root)
@@ -1113,7 +1112,7 @@ impl WebThingServer {
         #[cfg(not(feature = "ssl"))]
         {
             self.dns_service =
-                Some(responder.register(SERVICE_TYPE.to_owned(), name.clone(), port, &["path=/"]));
+                Some(responder.register(SERVICE_TYPE.to_owned(), name, port, &["path=/"]));
             server
                 .bind(format!("0.0.0.0:{}", port))
                 .expect("Failed to bind socket")
