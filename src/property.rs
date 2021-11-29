@@ -151,10 +151,7 @@ impl Property for BaseProperty {
 
     /// Set the current value of the property.
     fn set_value(&mut self, value: serde_json::Value) -> Result<(), &'static str> {
-        let result = self.validate_value(&value);
-        if result.is_err() {
-            return result;
-        }
+        self.validate_value(&value)?;
 
         match self.value_forwarder {
             Some(ref mut vf) => match vf.set_value(value) {
