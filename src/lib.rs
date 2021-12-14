@@ -7,6 +7,9 @@ extern crate std;
 /// Action trait and base implementation.
 pub mod action;
 
+/// ActionGenerator trait and base implementation.
+pub mod action_generator;
+
 /// Event trait and base implementation.
 pub mod event;
 
@@ -23,6 +26,7 @@ pub mod thing;
 pub mod utils;
 
 pub use action::{Action, BaseAction};
+pub use action_generator::BaseActionGenerator;
 pub use event::{BaseEvent, Event};
 pub use property::{BaseProperty, Property};
 pub use server::{ThingsType, WebThingServer};

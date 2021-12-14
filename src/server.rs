@@ -22,6 +22,7 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use super::action::Action;
+pub use super::action_generator::ActionGenerator;
 use super::thing::Thing;
 use super::utils::get_addresses;
 
@@ -34,23 +35,6 @@ pub enum ThingsType {
     Multiple(Vec<Arc<RwLock<Box<dyn Thing>>>>, String),
     /// Set when there is only one thing
     Single(Arc<RwLock<Box<dyn Thing>>>),
-}
-
-/// Generator for new actions, based on name.
-pub trait ActionGenerator: Send + Sync {
-    /// Generate a new action, if possible.
-    ///
-    /// # Arguments
-    ///
-    /// * `thing` - thing associated with this action
-    /// * `name` - name of the requested action
-    /// * `input` - input for the action
-    fn generate(
-        &self,
-        thing: Weak<RwLock<Box<dyn Thing>>>,
-        name: String,
-        input: Option<&serde_json::Value>,
-    ) -> Option<Box<dyn Action>>;
 }
 
 /// Shared app state, used by server threads.
