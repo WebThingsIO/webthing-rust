@@ -523,14 +523,10 @@ fn handle_put_property(
         }
     };
 
-    let arg = if let Some(arg) = args.get(property_name) {
-        arg
-    } else {
-        return HttpResponse::BadRequest().json(bad_request(
-            "Request does not contain property key",
-            Some(json!(args)),
-        ));
-    };
+    let arg = args.get(property_name).ok_or_else(|| HttpResponse::BadRequest().json(bad_request(
+        "Request does not contain property key",
+        Some(json!(args)),
+    )))?;
 
     let mut thing = thing.write().unwrap();
     if thing.has_property(&property_name.to_string()) {
