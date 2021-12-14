@@ -188,6 +188,31 @@ impl Actor for ThingWebSocket {
     type Context = ws::WebsocketContext<Self>;
 }
 
+fn bad_request(message: impl AsRef<str>, request: Option<serde_json::Value>) -> serde_json::Value {
+    if let Some(request) = request {
+        json!({
+              "messageType": "error",
+              "data": {
+                  "status": "400 Bad Request",
+                  "message": message.as_ref(),
+                  "request": request,
+              }
+        })
+    } else {
+        json!({
+            "messageType": "error",
+            "data": {
+                "status": "400 Bad Request",
+                "message": message.as_ref(),
+            }
+        })
+    }
+}
+
+fn bad_request_string(message: impl AsRef<str>, request: Option<serde_json::Value>) -> String {
+    serde_json::to_string(&bad_request(message, request)).unwrap()
+}
+
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ThingWebSocket {
     fn started(&mut self, ctx: &mut Self::Context) {
         self.drain_queue(ctx);
@@ -198,62 +223,26 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ThingWebSocket {
             Ok(ws::Message::Ping(msg)) => ctx.pong(&msg),
             Ok(ws::Message::Pong(_)) => (),
             Ok(ws::Message::Text(text)) => {
-                let message = serde_json::from_str(&text);
-                if message.is_err() {
-                    return ctx.text(
-                        r#"
-                        {
-                            "messageType": "error",
-                            "data": {
-                                "status": "400 Bad Request",
-                                "message": "Parsing request failed"
-                            }
-                        }"#,
-                    );
-                }
+                let message: serde_json::Value = if let Ok(message) = serde_json::from_str(&text) {
+                    message
+                } else {
+                    return ctx.text(bad_request_string("Parsing request failed", None));
+                };
 
-                let message: serde_json::Value = message.unwrap();
-                if !message.is_object() {
-                    return ctx.text(
-                        r#"
-                        {
-                            "messageType": "error",
-                            "data": {
-                                "status": "400 Bad Request",
-                                "message": "Parsing request failed"
-                            }
-                        }"#,
-                    );
-                }
-
-                let message = message.as_object().unwrap();
+                let message = if let Some(object) = message.as_object() {
+                    object
+                } else {
+                    return ctx.text(bad_request_string("Parsing request failed", Some(message)));
+                };
 
                 if !message.contains_key("messageType") || !message.contains_key("data") {
-                    return ctx.text(
-                        r#"
-                        {
-                            "messageType": "error",
-                            "data": {
-                                "status": "400 Bad Request",
-                                "message": "Invalid message"
-                            }
-                        }"#,
-                    );
+                    return ctx.text(bad_request_string("Invalid message", Some(json!(message))));
                 }
 
                 let msg_type = message.get("messageType").unwrap().as_str();
                 let data = message.get("data").unwrap().as_object();
                 if msg_type.is_none() || data.is_none() {
-                    return ctx.text(
-                        r#"
-                        {
-                            "messageType": "error",
-                            "data": {
-                                "status": "400 Bad Request",
-                                "message": "Invalid message"
-                            }
-                        }"#,
-                    );
+                    return ctx.text(bad_request_string("Invalid message", Some(json!(message))));
                 }
 
                 let msg_type = msg_type.unwrap();
@@ -269,17 +258,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ThingWebSocket {
                                 .set_property(property_name.to_string(), property_value.clone());
 
                             if let Err(err) = result {
-                                return ctx.text(format!(
-                                    r#"
-                                    {{
-                                        "messageType": "error",
-                                        "data": {{
-                                            "status": "400 Bad Request",
-                                            "message": "{}"
-                                        }}
-                                    }}"#,
-                                    err
-                                ));
+                                return ctx.text(bad_request_string(err, Some(json!(message))));
                             }
                         }
                     }
@@ -293,17 +272,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ThingWebSocket {
                             );
 
                             if action.is_none() {
-                                return ctx.text(format!(
-                                    r#"
-                                {{
-                                    "messageType": "error",
-                                    "data": {{
-                                        "status": "400 Bad Request",
-                                        "message": "Invalid action request",
-                                        "request": {}
-                                    }}
-                                }}"#,
-                                    text
+                                return ctx.text(bad_request_string(
+                                    "Invalid action request",
+                                    Some(json!(message)),
                                 ));
                             }
 
@@ -313,19 +284,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ThingWebSocket {
 
                             {
                                 let mut thing = thing.write().unwrap();
-                                let result = thing.add_action(action.clone(), input);
-
-                                if result.is_err() {
-                                    return ctx.text(format!(
-                                        r#"
-                                    {{
-                                        "messageType": "error",
-                                        "data": {{
-                                            "status": "400 Bad Request",
-                                            "message": "Failed to start action: {}"
-                                        }}
-                                    }}"#,
-                                        result.unwrap_err()
+                                if let Err(err) = thing.add_action(action.clone(), input) {
+                                    return ctx.text(bad_request_string(
+                                        format!("Failed to start action: {}", err),
+                                        Some(json!(message)),
                                     ));
                                 }
                             }
@@ -345,16 +307,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ThingWebSocket {
                         }
                     }
                     unknown => {
-                        return ctx.text(format!(
-                            r#"
-                            {{
-                                "messageType": "error",
-                                "data": {{
-                                    "status": "400 Bad Request",
-                                    "message": "Unknown messageType: {}"
-                                }}
-                            }}"#,
-                            unknown
+                        return ctx.text(bad_request_string(
+                            format!("Unknown messageType: {}", unknown),
+                            Some(json!(message)),
                         ));
                     }
                 }
@@ -544,27 +499,32 @@ fn handle_put_property(
 
     let args = match body.as_object() {
         Some(args) => args,
-        None => return HttpResponse::BadRequest().finish(),
+        None => {
+            return HttpResponse::BadRequest().json(bad_request(
+                "Parsing request failed",
+                Some(body.into_inner()),
+            ))
+        }
     };
 
-    if !args.contains_key(property_name) {
-        return HttpResponse::BadRequest().finish();
-    }
+    let arg = if let Some(arg) = args.get(property_name) {
+        arg
+    } else {
+        return HttpResponse::BadRequest().json(bad_request(
+            "Request does not contain property key",
+            Some(json!(args)),
+        ));
+    };
 
     let mut thing = thing.write().unwrap();
     if thing.has_property(&property_name.to_string()) {
-        if thing
-            .set_property(
-                property_name.to_string(),
-                args.get(property_name).unwrap().clone(),
-            )
-            .is_ok()
-        {
-            HttpResponse::Ok().json(
+        let set_property_result = thing.set_property(property_name.to_string(), arg.clone());
+
+        match set_property_result {
+            Ok(()) => HttpResponse::Ok().json(
                 json!({property_name: thing.get_property(&property_name.to_string()).unwrap()}),
-            )
-        } else {
-            HttpResponse::BadRequest().finish()
+            ),
+            Err(err) => HttpResponse::BadRequest().json(bad_request(err, Some(json!(args)))),
         }
     } else {
         HttpResponse::NotFound().finish()
