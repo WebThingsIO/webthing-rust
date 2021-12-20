@@ -30,4 +30,4 @@ pub use action_generator::BaseActionGenerator;
 pub use event::{BaseEvent, Event};
 pub use property::{BaseProperty, Property};
 pub use server::{ThingsType, WebThingServer};
-pub use thing::{BaseThing, Thing};
+pub use thing::{BaseThing, Thing, ThingContext};
