@@ -16,12 +16,11 @@ use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use serde_json;
 use serde_json::json;
 use std::marker::{Send, Sync};
-use std::sync::{Arc, RwLock, Weak};
+use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 use std::time::Duration;
 use uuid::Uuid;
 
-use super::action::Action;
 pub use super::action_generator::ActionGenerator;
 use super::thing::Thing;
 use super::utils::get_addresses;
