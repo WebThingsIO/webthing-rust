@@ -44,7 +44,9 @@ pub trait Thing: Send + Sync {
     fn get_title(&self) -> String;
 
     /// Get the type context of the thing.
-    fn get_context(&self) -> String;
+    /// It can be a plain string or an array of strings
+    /// and maps namespace -> uri
+    fn get_context(&self) -> serde_json::Value;
 
     /// Get the type(s) of the thing.
     fn get_type(&self) -> Vec<String>;
@@ -203,13 +205,65 @@ pub trait Thing: Send + Sync {
     fn drain_queue(&mut self, ws_id: String) -> Vec<Drain<String>>;
 }
 
+/// Vocabularies to be passed as json-ld @context
+///
+/// The default is the plain `https://webthings.io/schemas`
+#[derive(Clone)]
+pub struct ThingContext {
+    plain: Vec<String>,
+    namespaced: HashMap<String, String>,
+}
+
+impl ThingContext {
+    /// Create a plain json-ld context with a single entry
+    pub fn new(base: &str) -> Self {
+        ThingContext {
+            plain: vec![base.to_owned()],
+            namespaced: HashMap::new(),
+        }
+    }
+}
+
+impl<A, B> std::iter::FromIterator<(Option<A>, B)> for ThingContext
+where
+    A: AsRef<str>,
+    B: AsRef<str>,
+{
+    /// Create a rich json-ld context from an iterable
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = (Option<A>, B)>,
+    {
+        let mut plain = Vec::new();
+        let mut namespaced = HashMap::new();
+
+        for (maybe_k, val) in iter {
+            let val = val.as_ref().to_owned();
+            if let Some(k) = maybe_k {
+                namespaced.insert(k.as_ref().to_owned(), val);
+            } else {
+                plain.push(val);
+            }
+        }
+
+        ThingContext { plain, namespaced }
+    }
+}
+
+impl Default for ThingContext {
+    /// Plain `https://webthings.io/schemas` vocabulary
+    fn default() -> Self {
+        ThingContext::new("https://webthings.io/schemas")
+    }
+}
+
 /// Basic web thing implementation.
 ///
 /// This can easily be used by other things to handle most of the boring work.
 #[derive(Default)]
 pub struct BaseThing {
     id: String,
-    context: String,
+    context: ThingContext,
     type_: Vec<String>,
     title: String,
     description: String,
@@ -232,6 +286,7 @@ impl BaseThing {
     /// * `title` - the thing's title
     /// * `type_` - the thing's type(s)
     /// * `description` - description of the thing
+    /// * `context` - vocabularies to be used in the thing description
     pub fn new(
         id: String,
         title: String,
@@ -240,12 +295,18 @@ impl BaseThing {
     ) -> Self {
         Self {
             id,
-            context: "https://webthings.io/schemas".to_owned(),
             type_: type_.unwrap_or_else(Vec::new),
             title,
             description: description.unwrap_or_else(|| "".to_string()),
             ..Default::default()
         }
+    }
+
+    /// Overwrite the Thing Description context with a new set of
+    /// vocabularies.
+    pub fn with_context(mut self, context: ThingContext) -> Self {
+        self.context = context;
+        self
     }
 }
 
@@ -256,7 +317,7 @@ impl Thing for BaseThing {
 
         description.insert("id".to_owned(), json!(self.get_id()));
         description.insert("title".to_owned(), json!(self.get_title()));
-        description.insert("@context".to_owned(), json!(self.get_context()));
+        description.insert("@context".to_owned(), self.get_context());
         description.insert("@type".to_owned(), json!(self.get_type()));
         description.insert(
             "properties".to_owned(),
@@ -400,8 +461,20 @@ impl Thing for BaseThing {
     }
 
     /// Get the type context of the thing.
-    fn get_context(&self) -> String {
-        self.context.clone()
+    fn get_context(&self) -> serde_json::Value {
+        if self.context.namespaced.is_empty() {
+            if self.context.plain.len() == 1 {
+                json!(self.context.plain[0])
+            } else {
+                json!(self.context.plain)
+            }
+        } else {
+            let mut values = json!(self.context.plain);
+            if let Some(v) = values.as_array_mut() {
+                v.push(json!(self.context.namespaced))
+            }
+            values
+        }
     }
 
     /// Get the type(s) of the thing.
