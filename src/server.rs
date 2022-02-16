@@ -340,21 +340,20 @@ async fn handle_get_things(req: HttpRequest, state: web::Data<AppState>) -> Http
         for thing in things.iter() {
             let thing = thing.read().unwrap();
 
-            let mut link = serde_json::Map::new();
-            link.insert("rel".to_owned(), json!("alternate"));
-            link.insert(
+            let mut form = serde_json::Map::new();
+            form.insert(
                 "href".to_owned(),
                 json!(format!("{}{}", ws_href, thing.get_href())),
             );
 
             let mut description = thing.as_thing_description().clone();
             {
-                let links = description
-                    .get_mut("links")
+                let forms = description
+                    .get_mut("forms")
                     .unwrap()
                     .as_array_mut()
                     .unwrap();
-                links.push(json!(link));
+                forms.push(json!(form));
             }
 
             description.insert("href".to_owned(), json!(thing.get_href()));
@@ -393,18 +392,17 @@ async fn handle_get_thing(req: HttpRequest, state: web::Data<AppState>) -> HttpR
                 thing.get_href()
             );
 
-            let mut link = serde_json::Map::new();
-            link.insert("rel".to_owned(), json!("alternate"));
-            link.insert("href".to_owned(), json!(ws_href));
+            let mut form = serde_json::Map::new();
+            form.insert("href".to_owned(), json!(ws_href));
 
             let mut description = thing.as_thing_description();
             {
-                let links = description
-                    .get_mut("links")
+                let forms = description
+                    .get_mut("forms")
                     .unwrap()
                     .as_array_mut()
                     .unwrap();
-                links.push(json!(link));
+                forms.push(json!(form));
             }
 
             description.insert(
