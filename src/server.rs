@@ -1,14 +1,16 @@
 /// Rust Web Thing server implementation.
 use actix;
 use actix::prelude::*;
-use actix_service::{Service, Transform};
 use actix_web;
+use actix_web::body::EitherBody;
 use actix_web::dev::{Server, ServiceRequest, ServiceResponse};
+use actix_web::dev::{Service, Transform};
 use actix_web::guard;
-use actix_web::http::HeaderValue;
+use actix_web::http::header::HeaderValue;
+use actix_web::web::Data;
 use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer};
 use actix_web_actors::ws;
-use futures::future::{ok, Either, Ready};
+use futures::future::{ok, LocalBoxFuture, Ready};
 use hostname;
 use libmdns;
 #[cfg(feature = "ssl")]
@@ -86,14 +88,13 @@ impl AppState {
 /// Host validation middleware
 struct HostValidator;
 
-impl<S, B> Transform<S> for HostValidator
+impl<S, B> Transform<S, ServiceRequest> for HostValidator
 where
-    S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
     B: 'static,
 {
-    type Request = ServiceRequest;
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
     type InitError = ();
     type Transform = HostValidatorMiddleware<S>;
@@ -104,41 +105,40 @@ where
     }
 }
 
-struct HostValidatorMiddleware<S> {
+struct HostValidatorMiddleware<S: Service<ServiceRequest>> {
     service: S,
 }
 
-impl<S, B> Service for HostValidatorMiddleware<S>
+impl<S, B> Service<ServiceRequest> for HostValidatorMiddleware<S>
 where
-    S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
     B: 'static,
 {
-    type Request = ServiceRequest;
-    type Response = ServiceResponse<B>;
+    type Response = ServiceResponse<EitherBody<B>>;
     type Error = Error;
-    type Future = Either<S::Future, Ready<Result<Self::Response, Self::Error>>>;
+    type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.service.poll_ready(cx)
     }
 
-    fn call(&mut self, req: ServiceRequest) -> Self::Future {
-        let state = req.app_data::<web::Data<AppState>>();
-        if state.is_none() {
-            return Either::Right(ok(
-                req.into_response(HttpResponse::Forbidden().finish().into_body())
-            ));
-        }
-
-        let state = state.unwrap();
-
-        let host = req.headers().get("Host");
-        match state.validate_host(host) {
-            Ok(_) => Either::Left(self.service.call(req)),
-            Err(_) => Either::Right(ok(
-                req.into_response(HttpResponse::Forbidden().finish().into_body())
-            )),
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        if let Some(state) = req.app_data::<web::Data<AppState>>() {
+            let host = req.headers().get("Host");
+            match state.validate_host(host) {
+                Ok(_) => {
+                    let res = self.service.call(req);
+                    Box::pin(async move { res.await.map(ServiceResponse::map_into_left_body) })
+                }
+                Err(_) => Box::pin(async {
+                    Ok(req.into_response(HttpResponse::Forbidden().finish().map_into_right_body()))
+                }),
+            }
+        } else {
+            Box::pin(async {
+                Ok(req.into_response(HttpResponse::Forbidden().finish().map_into_right_body()))
+            })
         }
     }
 }
@@ -323,7 +323,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for ThingWebSocket {
 }
 
 /// Handle a GET request to / when the server manages multiple things.
-fn handle_get_things(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
+async fn handle_get_things(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
     let mut response: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
 
     // The host header is already checked by HostValidator, so the unwrapping is safe here.
@@ -375,7 +375,7 @@ fn handle_get_things(req: HttpRequest, state: web::Data<AppState>) -> HttpRespon
 }
 
 /// Handle a GET request to /.
-fn handle_get_thing(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
+async fn handle_get_thing(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
     let thing = state.get_thing(req.match_info().get("thing_id"));
     match thing {
         None => HttpResponse::NotFound().finish(),
@@ -460,7 +460,7 @@ async fn handle_get_properties(req: HttpRequest, state: web::Data<AppState>) -> 
 }
 
 /// Handle a GET request to /properties/<property>.
-fn handle_get_property(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
+async fn handle_get_property(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
     let thing = match state.get_thing(req.match_info().get("thing_id")) {
         Some(thing) => thing,
         None => return HttpResponse::NotFound().finish(),
@@ -481,7 +481,7 @@ fn handle_get_property(req: HttpRequest, state: web::Data<AppState>) -> HttpResp
 }
 
 /// Handle a PUT request to /properties/<property>.
-fn handle_put_property(
+async fn handle_put_property(
     req: HttpRequest,
     state: web::Data<AppState>,
     body: web::Json<serde_json::Value>,
@@ -531,7 +531,7 @@ fn handle_put_property(
 }
 
 /// Handle a GET request to /actions.
-fn handle_get_actions(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
+async fn handle_get_actions(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
     match state.get_thing(req.match_info().get("thing_id")) {
         None => HttpResponse::NotFound().finish(),
         Some(thing) => HttpResponse::Ok().json(thing.read().unwrap().get_action_descriptions(None)),
@@ -539,7 +539,7 @@ fn handle_get_actions(req: HttpRequest, state: web::Data<AppState>) -> HttpRespo
 }
 
 /// Handle a POST request to /actions.
-fn handle_post_actions(
+async fn handle_post_actions(
     req: HttpRequest,
     state: web::Data<AppState>,
     body: web::Json<serde_json::Value>,
@@ -606,7 +606,7 @@ fn handle_post_actions(
 }
 
 /// Handle a GET request to /actions/<action_name>.
-fn handle_get_action(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
+async fn handle_get_action(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
     if let Some(thing) = state.get_thing(req.match_info().get("thing_id")) {
         if let Some(action_name) = req.match_info().get("action_name") {
             let thing = thing.read().unwrap();
@@ -619,7 +619,7 @@ fn handle_get_action(req: HttpRequest, state: web::Data<AppState>) -> HttpRespon
 }
 
 /// Handle a POST request to /actions/<action_name>.
-fn handle_post_action(
+async fn handle_post_action(
     req: HttpRequest,
     state: web::Data<AppState>,
     body: web::Json<serde_json::Value>,
@@ -695,7 +695,7 @@ fn handle_post_action(
 }
 
 /// Handle a GET request to /actions/<action_name>/<action_id>.
-fn handle_get_action_id(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
+async fn handle_get_action_id(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
     let thing = if let Some(thing) = state.get_thing(req.match_info().get("thing_id")) {
         thing
     } else {
@@ -719,7 +719,7 @@ fn handle_get_action_id(req: HttpRequest, state: web::Data<AppState>) -> HttpRes
 }
 
 /// Handle a PUT request to /actions/<action_name>/<action_id>.
-fn handle_put_action_id(
+async fn handle_put_action_id(
     req: HttpRequest,
     state: web::Data<AppState>,
     _body: web::Json<serde_json::Value>,
@@ -734,7 +734,7 @@ fn handle_put_action_id(
 }
 
 /// Handle a DELETE request to /actions/<action_name>/<action_id>.
-fn handle_delete_action_id(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
+async fn handle_delete_action_id(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
     let thing = match state.get_thing(req.match_info().get("thing_id")) {
         Some(thing) => thing,
         None => return HttpResponse::NotFound().finish(),
@@ -756,7 +756,7 @@ fn handle_delete_action_id(req: HttpRequest, state: web::Data<AppState>) -> Http
 }
 
 /// Handle a GET request to /events.
-fn handle_get_events(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
+async fn handle_get_events(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
     match state.get_thing(req.match_info().get("thing_id")) {
         None => HttpResponse::NotFound().finish(),
         Some(thing) => HttpResponse::Ok().json(thing.read().unwrap().get_event_descriptions(None)),
@@ -764,7 +764,7 @@ fn handle_get_events(req: HttpRequest, state: web::Data<AppState>) -> HttpRespon
 }
 
 /// Handle a GET request to /events/<event_name>.
-fn handle_get_event(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
+async fn handle_get_event(req: HttpRequest, state: web::Data<AppState>) -> HttpResponse {
     let thing = match state.get_thing(req.match_info().get("thing_id")) {
         Some(thing) => thing,
         None => return HttpResponse::NotFound().finish(),
@@ -889,25 +889,25 @@ impl WebThingServer {
         let server = HttpServer::new(move || {
             let bp = bp.clone();
             let app = App::new()
-                .data(AppState {
+                .app_data(Data::new(AppState {
                     things: things_arc.clone(),
                     hosts: hosts_arc.clone(),
                     disable_host_validation: disable_host_validation_arc.clone(),
                     action_generator: generator_arc_clone.clone(),
-                })
+                }))
                 .wrap(middleware::Logger::default())
                 .wrap(HostValidator)
                 .wrap(
                     middleware::DefaultHeaders::new()
-                        .header("Access-Control-Allow-Origin", "*")
-                        .header(
+                        .add(("Access-Control-Allow-Origin", "*"))
+                        .add((
                             "Access-Control-Allow-Methods",
                             "GET, HEAD, PUT, POST, DELETE, OPTIONS",
-                        )
-                        .header(
+                        ))
+                        .add((
                             "Access-Control-Allow-Headers",
                             "Origin, Content-Type, Accept, X-Requested-With",
-                        ),
+                        )),
                 );
 
             let app = if let Some(ref configure) = configure {
