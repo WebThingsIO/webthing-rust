@@ -1,5 +1,4 @@
 use chrono::Utc;
-use get_if_addrs;
 use std::collections::HashSet;
 use std::net::IpAddr;
 
@@ -15,7 +14,7 @@ pub fn timestamp() -> String {
 pub fn get_addresses() -> Vec<String> {
     let mut addresses = HashSet::new();
 
-    for iface in get_if_addrs::get_if_addrs().unwrap() {
+    for iface in if_addrs::get_if_addrs().unwrap() {
         match iface.ip() {
             IpAddr::V4(addr) => addresses.insert(addr.to_string()),
             IpAddr::V6(addr) => addresses.insert(format!("[{}]", addr.to_string())),
