@@ -349,7 +349,7 @@ impl Thing for BaseThing {
 
         if let Some(ui_href) = self.get_ui_href() {
             let mut ui_form = serde_json::Map::new();
-            ui_form.insert("mediaType".to_owned(), json!("text/html"));
+            ui_form.insert("type".to_owned(), json!("text/html"));
             ui_form.insert("href".to_owned(), json!(ui_href));
             forms.push(ui_form);
         }
