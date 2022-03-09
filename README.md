@@ -12,7 +12,7 @@ If you're using `Cargo`, just add `webthing` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-webthing = "0.14"
+webthing = "0.15"
 ```
 
 ## TLS Support
