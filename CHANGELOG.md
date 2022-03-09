@@ -7,6 +7,7 @@
 - BaseActionGenerator to reduce boilerplate when creating a server which doesn't need actions
 ### Changed
 - BaseThing and the Thing trait now support richer contexts
+- Move to actix web 4
 
 ## [0.14.0] - 2021-01-05
 ### Added
