@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.15.0] - 2022-03-07
+### Added
+- BaseActionGenerator to reduce boilerplate when creating a server which doesn't need actions
+### Changed
+- BaseThing and the Thing trait now support richer contexts
+- Move to actix web 4
+
 ## [0.14.0] - 2021-01-05
 ### Added
 - Parameter to disable host validation in server.
@@ -68,7 +75,8 @@
 ### Changed
 - Property, Action, and Event description now use `links` rather than `href`. - [Spec PR](https://github.com/WebThingsIO/wot/pull/119)
 
-[Unreleased]: https://github.com/WebThingsIO/webthing-rust/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/WebThingsIO/webthing-rust/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/WebThingsIO/webthing-rust/compare/v0.13.0...v0.13.1
