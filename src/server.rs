@@ -829,6 +829,23 @@ impl WebThingServer {
         }
     }
 
+    fn set_href_prefix(&mut self) {
+        match &mut self.things {
+            ThingsType::Multiple(ref mut things, _) => {
+                for (idx, thing) in things.iter_mut().enumerate() {
+                    let mut thing = thing.write().unwrap();
+                    thing.set_href_prefix(format!("{}/{}", self.base_path, idx));
+                }
+            }
+            ThingsType::Single(ref mut thing) => {
+                thing
+                    .write()
+                    .unwrap()
+                    .set_href_prefix(self.base_path.clone());
+            }
+        }
+    }
+
     /// Start listening for incoming connections.
     pub fn start(
         &mut self,
@@ -860,20 +877,7 @@ impl WebThingServer {
             ThingsType::Multiple(_, name) => name.to_owned(),
         };
 
-        match &mut self.things {
-            ThingsType::Multiple(ref mut things, _) => {
-                for (idx, thing) in things.iter_mut().enumerate() {
-                    let mut thing = thing.write().unwrap();
-                    thing.set_href_prefix(format!("{}/{}", self.base_path, idx));
-                }
-            }
-            ThingsType::Single(ref mut thing) => {
-                thing
-                    .write()
-                    .unwrap()
-                    .set_href_prefix(self.base_path.clone());
-            }
-        }
+        self.set_href_prefix();
 
         let single = match &self.things {
             ThingsType::Multiple(_, _) => false,
