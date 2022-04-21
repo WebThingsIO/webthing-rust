@@ -833,7 +833,7 @@ impl WebThingServer {
     /// Start listening for incoming connections.
     pub fn start(
         &mut self,
-        configure: Option<Arc<dyn Fn(&mut web::ServiceConfig) + Send + Sync + 'static>>,
+        configure: Option<&'static (dyn Fn(&mut web::ServiceConfig) + Send + Sync + 'static)>,
     ) -> Server {
         let port = self.port.unwrap_or(80);
 
@@ -911,7 +911,7 @@ impl WebThingServer {
                 );
 
             let app = if let Some(ref configure) = configure {
-                unsafe { app.configure(&*Arc::into_raw(configure.clone())) }
+                app.configure(configure)
             } else {
                 app
             };
