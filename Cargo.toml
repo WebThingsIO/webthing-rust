@@ -7,7 +7,7 @@ homepage = "https://github.com/WebThingsIO/webthing-rust"
 license = "MPL-2.0"
 readme = "README.md"
 description = "Implementation of an HTTP Web Thing."
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 actix = "0.13"
