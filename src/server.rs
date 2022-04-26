@@ -798,15 +798,14 @@ impl WebThingServer {
     /// # Arguments
     ///
     /// * `things` - list of Things managed by this server
-    /// * `name` - name of this device -- this is only needed if the server is managing multiple
-    ///   things
     /// * `port` - port to listen on (defaults to 80)
     /// * `hostname` - optional host name, i.e. mything.com
     /// * `ssl_options` - tuple of SSL options to pass to the actix web server
     /// * `action_generator` - action generator struct
     /// * `base_path` - base URL to use, rather than '/'
     /// * `disable_host_validation` - whether or not to disable host validation -- note that this
-    ///   can lead to DNS rebinding attacks
+    ///   can lead to DNS rebinding attacks. `None` means to use the default,
+    ///   which keeps it enabled.
     pub fn new(
         things: ThingsType,
         port: Option<u16>,
