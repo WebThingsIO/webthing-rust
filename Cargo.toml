@@ -1,6 +1,6 @@
 [package]
 name = "webthing"
-version = "0.15.0"
+version = "0.15.1"
 authors = ["WebThingsIO <team@webthings.io>"]
 repository = "https://github.com/WebThingsIO/webthing-rust"
 homepage = "https://github.com/WebThingsIO/webthing-rust"
@@ -13,7 +13,7 @@ edition = "2021"
 actix = { version = "0.13", optional = true }
 actix-web = { version = "4.0.0", optional = true }
 actix-web-actors = { version = "4.0.0", optional = true }
-chrono = { version = "0.4", default_features = false, features = ["std"] }
+chrono = { version = "0.4.22", default_features = false, features = ["std"] }
 futures = { version = "0.3", optional = true }
 hostname = { version = "0.3", optional = true }
 if-addrs = { version = "0.7", optional = true }
