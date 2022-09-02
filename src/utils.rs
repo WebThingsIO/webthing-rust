@@ -1,6 +1,7 @@
 use chrono::Utc;
-use std::collections::HashSet;
-use std::net::IpAddr;
+
+#[cfg(feature = "actix")]
+use std::{collections::HashSet, net::IpAddr};
 
 /// Get the current time.
 ///
@@ -11,6 +12,7 @@ pub fn timestamp() -> String {
 }
 
 /// Get all IP addresses
+#[cfg(feature = "actix")]
 pub fn get_addresses() -> Vec<String> {
     let mut addresses = HashSet::new();
 

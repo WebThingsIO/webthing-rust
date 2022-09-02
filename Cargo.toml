@@ -10,14 +10,14 @@ description = "Implementation of an HTTP Web Thing."
 edition = "2021"
 
 [dependencies]
-actix = "0.13"
-actix-web = "4.0.0"
-actix-web-actors = "4.0.0"
-chrono = "0.4"
-futures = "0.3"
-if-addrs = "0.7"
-hostname = "0.3"
-libmdns = "0.6"
+actix = { version = "0.13", optional = true }
+actix-web = { version = "4.0.0", optional = true }
+actix-web-actors = { version = "4.0.0", optional = true }
+chrono = { version = "0.4", default_features = false, features = ["std"] }
+futures = { version = "0.3", optional = true }
+hostname = { version = "0.3", optional = true }
+if-addrs = { version = "0.7", optional = true }
+libmdns = { version = "0.6", optional = true }
 openssl = { version = "0.10", optional = true }
 serde_json = "1.0"
 uuid = { version = "1.0", features = ["v4"] }
@@ -29,5 +29,14 @@ env_logger = "0.9"
 rand = "0.8"
 
 [features]
-default = []
-ssl = ["actix-web/openssl", "openssl"]
+default = ["actix"]
+actix = [
+    "dep:actix",
+    "actix-web",
+    "actix-web-actors",
+    "futures",
+    "if-addrs",
+    "hostname",
+    "libmdns",
+]
+ssl = ["actix", "actix-web/openssl", "openssl"]
