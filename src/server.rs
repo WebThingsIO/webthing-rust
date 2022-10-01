@@ -829,11 +829,26 @@ impl WebThingServer {
         }
     }
 
-    /// Start listening for incoming connections.
-    pub fn start(
-        &mut self,
-        configure: Option<&'static (dyn Fn(&mut web::ServiceConfig) + Send + Sync + 'static)>,
-    ) -> Server {
+    fn set_href_prefix(&mut self) {
+        match &mut self.things {
+            ThingsType::Multiple(ref mut things, _) => {
+                for (idx, thing) in things.iter_mut().enumerate() {
+                    let mut thing = thing.write().unwrap();
+                    thing.set_href_prefix(format!("{}/{}", self.base_path, idx));
+                }
+            }
+            ThingsType::Single(ref mut thing) => {
+                thing
+                    .write()
+                    .unwrap()
+                    .set_href_prefix(self.base_path.clone());
+            }
+        }
+    }
+
+    /// Return the base actix configuration for the server
+    /// useful for testing.
+    pub fn make_config(&mut self) -> impl Fn(&mut web::ServiceConfig) + Clone + 'static {
         let port = self.port.unwrap_or(80);
 
         let mut hosts = vec!["localhost".to_owned(), format!("localhost:{}", port)];
@@ -855,25 +870,7 @@ impl WebThingServer {
             hosts.push(format!("{}:{}", name, port));
         }
 
-        let name = match &self.things {
-            ThingsType::Single(thing) => thing.read().unwrap().get_title(),
-            ThingsType::Multiple(_, name) => name.to_owned(),
-        };
-
-        match &mut self.things {
-            ThingsType::Multiple(ref mut things, _) => {
-                for (idx, thing) in things.iter_mut().enumerate() {
-                    let mut thing = thing.write().unwrap();
-                    thing.set_href_prefix(format!("{}/{}", self.base_path, idx));
-                }
-            }
-            ThingsType::Single(ref mut thing) => {
-                thing
-                    .write()
-                    .unwrap()
-                    .set_href_prefix(self.base_path.clone());
-            }
-        }
+        self.set_href_prefix();
 
         let single = match &self.things {
             ThingsType::Multiple(_, _) => false,
@@ -885,35 +882,14 @@ impl WebThingServer {
         let disable_host_validation_arc = Arc::new(self.disable_host_validation);
 
         let bp = self.base_path.clone();
-        let server = HttpServer::new(move || {
-            let bp = bp.clone();
-            let app = App::new()
-                .app_data(Data::new(AppState {
-                    things: things_arc.clone(),
-                    hosts: hosts_arc.clone(),
-                    disable_host_validation: disable_host_validation_arc.clone(),
-                    action_generator: generator_arc_clone.clone(),
-                }))
-                .wrap(middleware::Logger::default())
-                .wrap(HostValidator)
-                .wrap(
-                    middleware::DefaultHeaders::new()
-                        .add(("Access-Control-Allow-Origin", "*"))
-                        .add((
-                            "Access-Control-Allow-Methods",
-                            "GET, HEAD, PUT, POST, DELETE, OPTIONS",
-                        ))
-                        .add((
-                            "Access-Control-Allow-Headers",
-                            "Origin, Content-Type, Accept, X-Requested-With",
-                        )),
-                );
 
-            let app = if let Some(ref configure) = configure {
-                app.configure(configure)
-            } else {
-                app
-            };
+        move |app: &mut web::ServiceConfig| {
+            app.app_data(Data::new(AppState {
+                things: things_arc.clone(),
+                hosts: hosts_arc.clone(),
+                disable_host_validation: disable_host_validation_arc.clone(),
+                action_generator: generator_arc_clone.clone(),
+            }));
 
             if single {
                 let root = if bp.is_empty() {
@@ -964,7 +940,7 @@ impl WebThingServer {
                 .service(
                     web::resource(&format!("{}/events/{{event_name}}", bp))
                         .route(web::get().to(handle_get_event)),
-                )
+                );
             } else {
                 app.service(web::resource("/").route(web::get().to(handle_get_things)))
                     .service(
@@ -1011,7 +987,47 @@ impl WebThingServer {
                                 web::resource("/events/{event_name}")
                                     .route(web::get().to(handle_get_event)),
                             ),
-                    )
+                    );
+            }
+        }
+    }
+
+    /// Start listening for incoming connections.
+    pub fn start(
+        &mut self,
+        configure: Option<&'static (dyn Fn(&mut web::ServiceConfig) + Send + Sync + 'static)>,
+    ) -> Server {
+        let port = self.port.unwrap_or(80);
+
+        let name = match &self.things {
+            ThingsType::Single(thing) => thing.read().unwrap().get_title(),
+            ThingsType::Multiple(_, name) => name.to_owned(),
+        };
+
+        let things_config = self.make_config();
+
+        let server = HttpServer::new(move || {
+            let app = App::new()
+                .wrap(middleware::Logger::default())
+                .wrap(HostValidator)
+                .wrap(
+                    middleware::DefaultHeaders::new()
+                        .add(("Access-Control-Allow-Origin", "*"))
+                        .add((
+                            "Access-Control-Allow-Methods",
+                            "GET, HEAD, PUT, POST, DELETE, OPTIONS",
+                        ))
+                        .add((
+                            "Access-Control-Allow-Headers",
+                            "Origin, Content-Type, Accept, X-Requested-With",
+                        )),
+                )
+                .configure(&things_config);
+
+            if let Some(ref configure) = configure {
+                app.configure(configure)
+            } else {
+                app
             }
         });
 
