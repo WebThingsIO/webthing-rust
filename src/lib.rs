@@ -17,6 +17,7 @@ pub mod event;
 pub mod property;
 
 /// WebThingServer implementation.
+#[cfg(feature = "actix")]
 pub mod server;
 
 /// Thing trait and base implementation.
@@ -29,5 +30,8 @@ pub use action::{Action, BaseAction};
 pub use action_generator::BaseActionGenerator;
 pub use event::{BaseEvent, Event};
 pub use property::{BaseProperty, Property};
+
+#[cfg(feature = "actix")]
 pub use server::{ThingsType, WebThingServer};
+
 pub use thing::{BaseThing, Thing, ThingContext};
