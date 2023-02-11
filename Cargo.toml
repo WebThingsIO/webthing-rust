@@ -17,7 +17,7 @@ chrono = { version = "0.4.22", default_features = false, features = ["std"] }
 futures = { version = "0.3", optional = true }
 hostname = { version = "0.3", optional = true }
 if-addrs = { version = "0.7", optional = true }
-libmdns = { version = "0.6", optional = true }
+libmdns = { version = "0.7", optional = true }
 openssl = { version = "0.10", optional = true }
 serde_json = "1.0"
 uuid = { version = "1.0", features = ["v4"] }
