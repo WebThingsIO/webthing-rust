@@ -324,50 +324,45 @@ impl Thing for BaseThing {
             json!(self.get_property_descriptions()),
         );
 
-        let mut links: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
+        let mut forms: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
 
-        let mut properties_link = serde_json::Map::new();
-        properties_link.insert("rel".to_owned(), json!("properties"));
-        properties_link.insert(
+        let mut properties_form = serde_json::Map::new();
+        properties_form.insert(
             "href".to_owned(),
             json!(format!("{}/properties", self.get_href_prefix())),
         );
-        links.push(properties_link);
+        forms.push(properties_form);
 
-        let mut actions_link = serde_json::Map::new();
-        actions_link.insert("rel".to_owned(), json!("actions"));
-        actions_link.insert(
+        let mut actions_form = serde_json::Map::new();
+        actions_form.insert(
             "href".to_owned(),
             json!(format!("{}/actions", self.get_href_prefix())),
         );
-        links.push(actions_link);
+        forms.push(actions_form);
 
-        let mut events_link = serde_json::Map::new();
-        events_link.insert("rel".to_owned(), json!("events"));
-        events_link.insert(
+        let mut events_form = serde_json::Map::new();
+        events_form.insert(
             "href".to_owned(),
             json!(format!("{}/events", self.get_href_prefix())),
         );
-        links.push(events_link);
+        forms.push(events_form);
 
         if let Some(ui_href) = self.get_ui_href() {
-            let mut ui_link = serde_json::Map::new();
-            ui_link.insert("rel".to_owned(), json!("alternate"));
-            ui_link.insert("mediaType".to_owned(), json!("text/html"));
-            ui_link.insert("href".to_owned(), json!(ui_href));
-            links.push(ui_link);
+            let mut ui_form = serde_json::Map::new();
+            ui_form.insert("type".to_owned(), json!("text/html"));
+            ui_form.insert("href".to_owned(), json!(ui_href));
+            forms.push(ui_form);
         }
 
-        description.insert("links".to_owned(), json!(links));
+        description.insert("forms".to_owned(), json!(forms));
 
         let mut actions = serde_json::Map::new();
         for (name, action) in self.available_actions.iter() {
             let mut metadata = action.get_metadata().clone();
             metadata.insert(
-                "links".to_string(),
+                "forms".to_string(),
                 json!([
                     {
-                        "rel": "action",
                         "href": format!("{}/actions/{}", self.get_href_prefix(), name),
                     },
                 ]),
@@ -381,10 +376,9 @@ impl Thing for BaseThing {
         for (name, event) in self.available_events.iter() {
             let mut metadata = event.get_metadata().clone();
             metadata.insert(
-                "links".to_string(),
+                "forms".to_string(),
                 json!([
                     {
-                        "rel": "event",
                         "href": format!("{}/events/{}", self.get_href_prefix(), name),
                     },
                 ]),

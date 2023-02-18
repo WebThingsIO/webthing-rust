@@ -340,21 +340,20 @@ async fn handle_get_things(req: HttpRequest, state: web::Data<AppState>) -> Http
         for thing in things.iter() {
             let thing = thing.read().unwrap();
 
-            let mut link = serde_json::Map::new();
-            link.insert("rel".to_owned(), json!("alternate"));
-            link.insert(
+            let mut form = serde_json::Map::new();
+            form.insert(
                 "href".to_owned(),
                 json!(format!("{}{}", ws_href, thing.get_href())),
             );
 
             let mut description = thing.as_thing_description().clone();
             {
-                let links = description
-                    .get_mut("links")
+                let forms = description
+                    .get_mut("forms")
                     .unwrap()
                     .as_array_mut()
                     .unwrap();
-                links.push(json!(link));
+                forms.push(json!(form));
             }
 
             description.insert("href".to_owned(), json!(thing.get_href()));
@@ -393,18 +392,17 @@ async fn handle_get_thing(req: HttpRequest, state: web::Data<AppState>) -> HttpR
                 thing.get_href()
             );
 
-            let mut link = serde_json::Map::new();
-            link.insert("rel".to_owned(), json!("alternate"));
-            link.insert("href".to_owned(), json!(ws_href));
+            let mut form = serde_json::Map::new();
+            form.insert("href".to_owned(), json!(ws_href));
 
             let mut description = thing.as_thing_description();
             {
-                let links = description
-                    .get_mut("links")
+                let forms = description
+                    .get_mut("forms")
                     .unwrap()
                     .as_array_mut()
                     .unwrap();
-                links.push(json!(link));
+                forms.push(json!(form));
             }
 
             description.insert(
@@ -472,9 +470,8 @@ async fn handle_get_property(req: HttpRequest, state: web::Data<AppState>) -> Ht
     };
 
     let thing = thing.read().unwrap();
-    if thing.has_property(&property_name.to_string()) {
-        HttpResponse::Ok()
-            .json(json!({property_name: thing.get_property(&property_name.to_string()).unwrap()}))
+    if let Some(property) = thing.get_property(property_name) {
+        HttpResponse::Ok().json(json!(property))
     } else {
         HttpResponse::NotFound().finish()
     }
@@ -496,33 +493,14 @@ async fn handle_put_property(
         None => return HttpResponse::NotFound().finish(),
     };
 
-    let args = match body.as_object() {
-        Some(args) => args,
-        None => {
-            return HttpResponse::BadRequest().json(bad_request(
-                "Parsing request failed",
-                Some(body.into_inner()),
-            ))
-        }
-    };
-
-    let arg = if let Some(arg) = args.get(property_name) {
-        arg
-    } else {
-        return HttpResponse::BadRequest().json(bad_request(
-            "Request does not contain property key",
-            Some(json!(args)),
-        ));
-    };
+    let args = body.into_inner();
 
     let mut thing = thing.write().unwrap();
-    if thing.has_property(&property_name.to_string()) {
-        let set_property_result = thing.set_property(property_name.to_string(), arg.clone());
+    if thing.has_property(property_name) {
+        let set_property_result = thing.set_property(property_name.to_string(), args.clone());
 
         match set_property_result {
-            Ok(()) => HttpResponse::Ok().json(
-                json!({property_name: thing.get_property(&property_name.to_string()).unwrap()}),
-            ),
+            Ok(()) => HttpResponse::Ok().json(json!(thing.get_property(property_name).unwrap())),
             Err(err) => HttpResponse::BadRequest().json(bad_request(err, Some(json!(args)))),
         }
     } else {
